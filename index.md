@@ -1,6 +1,6 @@
 ---
 layout: default
-title: <Your Name>
+title: Toby Young
 ---
 
 ## About Me
@@ -9,8 +9,8 @@ title: <Your Name>
 ![Profile Picture]({{ "assets/images/profile-pic.jpg" | relative_url }}){: class="profile-image"}
 
  
-My name is {{ site.name }}, and I am [your pitch paragraph about your passions, knowledge and interestst.] Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut nec accumsan leo. Pellentesque ornare orci enim, vitae vestibulum nibh rutrum in. Donec pharetra risus nec ipsum fringilla, et mattis tortor auctor. Duis tortor ante, posuere ut odio a, scelerisque interdum purus. Aenean faucibus luctus est, sed bibendum tellus. Nulla et magna urna. Morbi a ipsum sollicitudin, rhoncus risus volutpat, ultricies nunc. Quisque mollis finibus ante id imperdiet. Quisque vehicula elit sit amet felis facilisis fermentum.
+My name is {{ site.name }}, and I am a student at Cornell University studying Mechanical Engineering. My goal is to use what I learn as an engineer to innovate and change people’s lives. I am passionate about designing practical solutions that combine creativity with technical skill, whether it’s developing new technologies, improving existing systems, or contributing to projects that have a meaningful impact on communities and the world around me. 
 
-Aenean tincidunt aliquam arcu, in euismod dui dapibus eu. In placerat, mi et ultrices consequat, quam ligula cursus mauris, in semper neque nibh at est. Maecenas hendrerit dignissim porta. Phasellus nec fringilla dolor. Etiam efficitur nisi sit amet velit pharetra feugiat. Etiam ultrices turpis at leo semper, eleifend scelerisque neque malesuada. Aliquam molestie congue rhoncus. Donec blandit neque dolor, nec tristique mi pretium ac. Mauris tincidunt ullamcorper magna, nec pellentesque mi sagittis quis.
+So far, I have gained hands-on experience through engineering, mentoring, and leadership roles. On Cornell Hyperloop’s Mechanical Team, I design and fabricate subsystems for a magnetic levitation pod, working with SolidWorks, machining, and testing to push the boundaries of high-speed transportation. As a Project Engineer Intern with Conti Civil, I contributed to the Hudson Tunnel Project by inspecting site progress, coordinating suppliers, and supporting daily operations across multiple work zones. Beyond engineering, I mentor younger students in coding through Curious Cardinals, helping them build problem-solving skills and creativity, and I’ve coached youth soccer teams, where I developed strong leadership, communication, and team-building abilities. These experiences have taught me how to combine technical expertise with collaboration and adaptability to achieve meaningful results.
 
 Take a look at <a href="{{ "/projects/" | relative_url }}">my projects</a> and <a href="{{ "/cv/" | relative_url }}">CV</a>.

@@ -8,3 +8,9 @@ $color_scheme: '{{ site.color_scheme }}';
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Merriweather:wght@400;700&display=swap');
 @import "custom";
 
+img[src*="Tolomatic-IMA-55-integrated-servomotor-actuator"] {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+}

@@ -3,7 +3,7 @@ layout: project
 title: Actuator Height/Weight Optimization Problem
 description: Design and Optimization Problem
 technologies: 
-image: 
+image: /assets/images/Tolomatic-IMA-55-integrated-servomotor-actuator.jpg
 ---
 
 For a class, we were asked to design a mechanism within a fixed 2D design space. The challenge was to use a rigid bar, three pin supports, and a linear actuator chosen from a manufacturer catalog to lift the maximum possible weight to the highest possible height. This project combined CAD modeling, actuator specification, and mechanical analysis to create a functional lifting system.

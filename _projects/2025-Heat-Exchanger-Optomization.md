@@ -20,7 +20,7 @@ Diagram:
 
 
 Setup:  
-![Shaded rendering of earlier version]({{ "assets/images/Parallel-Flow-Setup.jpg" | relative_url }}){: style="width: 200px"}
+![Shaded rendering of earlier version]({{ "assets/images/Parallel-Flow-Setup.jpg" | relative_url }}){: style="width: 400px"}
 
 
 
@@ -31,7 +31,7 @@ Diagram:
 
 
 Setup:  
-![Shaded rendering of earlier version]({{ "assets/images/Counterflow-Setup.jpg" | relative_url }}){: style="width: 200px"}
+![Shaded rendering of earlier version]({{ "assets/images/Counterflow-Setup.jpg" | relative_url }}){: style="width: 400px"}
 
 
 

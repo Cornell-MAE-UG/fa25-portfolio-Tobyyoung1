@@ -10,19 +10,29 @@ I assembled a bench-top plate heat-exchanger test rig from two insulated buckets
 Data:
 ![Shaded rendering of earlier version]({{ "assets/images/Heat-exchanger-data.png" | relative_url }}){: .inline-image-r style="width: 200px"}
 
+
+
 Parallel Flow:  
 Diagram:  
 ![Shaded rendering of earlier version]({{ "assets/images/Parallel-Flow-Diagram.png" | relative_url }}){: .inline-image-r style="width: 200px"}
 
+
+
 Setup:  
 ![Shaded rendering of earlier version]({{ "assets/images/Parallel-Flow-Setup.jpg" | relative_url }}){: .inline-image-r style="width: 200px"}
+
+
 
 Counter Flow:  
 Diagram:  
 ![Shaded rendering of earlier version]({{ "assets/images/Counterflow-Diagram.png" | relative_url }}){: .inline-image-r style="width: 200px"}
 
+
+
 Setup:  
 ![Shaded rendering of earlier version]({{ "assets/images/Counterflow-Setup.jpg" | relative_url }}){: .inline-image-r style="width: 200px"}
+
+
 
 Mass Balance, Energy Balance, Entropy Balance:  
 ![Shaded rendering of earlier version]({{ "assets/images/Mass-balance-energy-balance-entropy-balance.png" | relative_url }}){: .inline-image-r style="width: 200px"}

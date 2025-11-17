@@ -8,7 +8,8 @@ image: assets/images/Parallel-Flow-Setup.jpg
 I assembled a bench-top plate heat-exchanger test rig from two insulated buckets (one heated, one cooled), two small circulation pumps, clear tubing, and a small brazed/plate heat-exchanger module. Each bucket acts as a reservoir and supply for one fluid stream (hot stream and cold stream). Fluid is drawn from each bucket by its respective pump and routed through the heat-exchanger. Temperature probes measured the stream temperatures entering and exiting the plate exchanger and the plate body temperature (hot and cold side temperatures on the exchanger). I ran four main tests: parallel-flow and counter-flow configurations, each at high and low pump flow rates. The experiment measures how much the hot stream cools and the cold stream warms, giving an experimental heat transfer rate and an estimate of exchanger effectiveness for each condition.
 
 Data:
-![Shaded rendering of earlier version]({{ "assets/images/Heat-exchanger-data.png" | relative_url }}){: style="width: 200px"}
+
+![Shaded rendering of earlier version]({{ "assets/images/Heat-exchanger-data.png" | relative_url }}){: style="width: 500px"}
 
 
 

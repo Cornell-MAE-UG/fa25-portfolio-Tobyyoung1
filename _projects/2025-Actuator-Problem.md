@@ -115,7 +115,7 @@ This design met the deflection requirement (δ < 0.02L) while offering the lowes
 ---
 
 ### **c) Final Beam Design (Flexible)**
-![Shaded rendering of earlier version]({{ "/assets/images/assets/images/Actuator-Portoflio-Problem-Image.jpg.png" | relative_url }}){: .inline-image-r style="width: 200px"}
+!({{ "/assets/images/assets/images/Actuator-Portoflio-Problem-Image.jpg" | relative_url }}){: .inline-image-r style="width: 200px"}
 ---
 
 ## Beam Deflection Example (Simply-Supported Bar with Point Load)

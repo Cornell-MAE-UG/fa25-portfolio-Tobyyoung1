@@ -2,7 +2,6 @@
 layout: project
 title: SLF-Grape Density Separator
 description: Class project with Graphs
-technologies:
 image: assets/images/SLF Photo.jpg
 ---
 # SLF–Grape Water-Based Density Separator

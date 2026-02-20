@@ -4,8 +4,6 @@ title: SLF-Grape Density Separator
 description: Class project with Graphs
 image: assets/images/SLF Photo.jpg
 ---
-# SLF–Grape Water-Based Density Separator
-
 **Team:** LanternBye  
 **Client(s):** Cornell CALS Extension / E&J Gallo Winery / National Grape  
 

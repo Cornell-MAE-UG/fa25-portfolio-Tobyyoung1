@@ -9,9 +9,9 @@ description: Design and Optimization Problem — MAE2250
 
   .slf-page {
     font-family: 'Instrument Sans', sans-serif;
-    max-width: 780px;
-    margin: 0 auto;
-    padding: 2rem 1.5rem 4rem;
+    max-width: 100%;
+    margin: 0;
+    padding: 2rem 3rem 4rem;
     color: #1a1a18;
   }
 
@@ -425,7 +425,22 @@ description: Design and Optimization Problem — MAE2250
         </svg>
       </button>
       <div class="slf-accordion-panel" id="panel-proto" role="region">
-        <p class="slf-panel-placeholder">Prototype photos, video, or PDF link will go here. Add your O5 content below.</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 0.5rem;">
+          <div>
+            <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>
+            <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
+              <source src="SLF_Separator_1.mov" type="video/mp4">
+              Your browser does not support this video format.
+            </video>
+          </div>
+          <div>
+            <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 2</p>
+            <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
+              <source src="SLF_Separator_2.MOV" type="video/mp4">
+              Your browser does not support this video format.
+            </video>
+          </div>
+        </div>
       </div>
     </div>
 

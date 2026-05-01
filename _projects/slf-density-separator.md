@@ -2,18 +2,27 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
-image: assets/images/SLF Photo.jpg
 ---
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
 
+  /* Break out of Jekyll theme's content container */
+  .project-content, .post-content, .page-content, main, article, .content, .container, .wrapper {
+    max-width: none !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
   .slf-page {
     font-family: 'Instrument Sans', sans-serif;
     max-width: 100%;
+    width: 100%;
     margin: 0;
     padding: 2rem 3rem 4rem;
     color: #1a1a18;
+    box-sizing: border-box;
   }
 
   .slf-eyebrow {
@@ -430,14 +439,14 @@ image: assets/images/SLF Photo.jpg
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>
             <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="SLF_Separator_1.mov" type="video/mp4">
+              <source src="/assets/images/SLF Separator 1.mov" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 2</p>
             <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="SLF_Separator_2.MOV" type="video/mp4">
+              <source src="/assets/images/SLF Separator 2.MOV" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>

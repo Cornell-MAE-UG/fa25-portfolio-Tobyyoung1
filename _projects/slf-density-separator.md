@@ -2,6 +2,7 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
+image: assets/images/SLF Photo.jpg
 ---
 
 <style>
@@ -252,7 +253,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-step-name {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #2a3328;
     margin-bottom: 0.3rem;
@@ -273,14 +274,14 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-test-title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #2a3328;
     margin-bottom: 0.3rem;
   }
 
   .slf-test-body {
-    font-size: 15px;
+    font-size: 17px;
     color: #3e4e38;
     line-height: 1.6;
   }
@@ -298,7 +299,7 @@ description: Design and Optimization Problem — MAE2250
     margin: 1rem 0;
     font-style: italic;
     color: #4a5a44;
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1.65;
   }
 
@@ -330,7 +331,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-score-detail {
-    font-size: 15px;
+    font-size: 16px;
     color: #5a6a54;
     line-height: 1.4;
   }
@@ -367,7 +368,7 @@ description: Design and Optimization Problem — MAE2250
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
-    font-size: 16px;
+    font-size: 18px;
     color: #2e3830;
     line-height: 1.6;
     padding: 0.5rem 0;
@@ -384,6 +385,101 @@ description: Design and Optimization Problem — MAE2250
     margin-top: 0.55rem;
     flex-shrink: 0;
   }
+
+  /* ── Client Pitch Cards ── */
+  .slf-pitch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .slf-pitch-card {
+    background: #f7f9f5;
+    border: 1px solid #d4dece;
+    border-radius: 8px;
+    padding: 1.25rem 1.4rem 1.4rem;
+  }
+
+  .slf-pitch-card--full {
+    grid-column: 1 / -1;
+  }
+
+  .slf-pitch-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #7a8c6e;
+    margin-bottom: 0.35rem;
+  }
+
+  .slf-pitch-heading {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.15rem;
+    font-weight: 400;
+    color: #1a1a18;
+    line-height: 1.25;
+    margin-bottom: 0.85rem;
+  }
+
+  .slf-pitch-body {
+    font-size: 14px;
+    color: #2e3830;
+    line-height: 1.7;
+  }
+
+  .slf-pitch-body p {
+    margin: 0 0 0.75rem;
+  }
+
+  .slf-pitch-body strong {
+    font-weight: 600;
+    color: #1a1a18;
+  }
+
+  .slf-pitch-list {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .slf-pitch-list li {
+    margin-bottom: 0.4rem;
+  }
+
+  .slf-pitch-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+
+  .slf-pitch-stat {
+    background: #fff;
+    border: 1px solid #d4dece;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    text-align: center;
+  }
+
+  .slf-pitch-stat-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    color: #4a6741;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+
+  .slf-pitch-stat-label {
+    font-size: 11.5px;
+    color: #7a8c6e;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 640px) {
+    .slf-pitch-grid { grid-template-columns: 1fr; }
+    .slf-pitch-stats { grid-template-columns: 1fr; }
+  }
+
 </style>
 
 <div class="slf-page">
@@ -417,7 +513,104 @@ description: Design and Optimization Problem — MAE2250
         </svg>
       </button>
       <div class="slf-accordion-panel" id="panel-pitch" role="region">
-        <p class="slf-panel-placeholder">Pitch slides / PDF link will go here. Add your O3 content below or embed a link.</p>
+        <div class="slf-pitch-grid">
+
+          <!-- Slide 1: Problem -->
+          <div class="slf-pitch-card slf-pitch-card--full">
+            <div class="slf-pitch-label">01 — Problem Overview</div>
+            <div class="slf-pitch-heading">Spotted Lanternfly is degrading vineyard harvests across the U.S.</div>
+            <div class="slf-pitch-body">
+              <p>Over the past decade, SLF infestations have spread rapidly through major wine-producing regions, threatening both grape quality and harvest volume. During mechanical harvesting, the shaker arm dislodges grapes and SLF simultaneously — mixing an invasive pest directly into the collection stream.</p>
+              <div class="slf-pitch-stats">
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[__]</div>
+                  <div class="slf-pitch-stat-label">States with active SLF infestations</div>
+                </div>
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[__]</div>
+                  <div class="slf-pitch-stat-label">Estimated annual crop loss</div>
+                </div>
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[__]</div>
+                  <div class="slf-pitch-stat-label">Vineyards impacted in [region]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide 2: Sub-problem focus -->
+          <div class="slf-pitch-card">
+            <div class="slf-pitch-label">02 — Focused Sub-Problem</div>
+            <div class="slf-pitch-heading">The harvest moment</div>
+            <div class="slf-pitch-body">
+              <p>We narrowed our focus to the window immediately after the mechanical shaker — before grapes reach the collection bin. This is the highest-leverage intervention point: SLF and grapes are mixed but not yet processed, and separation is still physically possible.</p>
+              <ul class="slf-pitch-list">
+                <li>Existing solutions focus on field-level SLF control, not harvest contamination</li>
+                <li>No current in-line separation method exists for mechanical harvesters</li>
+                <li>Contamination at this stage affects the entire downstream batch</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Slide 3: Solution concept -->
+          <div class="slf-pitch-card">
+            <div class="slf-pitch-label">03 — Proposed Solution</div>
+            <div class="slf-pitch-heading">Density separation in sugar water</div>
+            <div class="slf-pitch-body">
+              <p>Grapes sink in sugar water; SLF float. Our system mounts directly beneath the harvester's internal shaker and exploits this density difference to automatically separate the two.</p>
+              <ul class="slf-pitch-list">
+                <li><strong>Separation tank</strong> — sugar water stream; grapes sink, SLF float</li>
+                <li><strong>Water wheel</strong> — rotating fins skim SLF off the surface</li>
+                <li><strong>Strainer tank</strong> — separates grapes from liquid</li>
+                <li><strong>Recirculating pump</strong> — one batch of sugar water per run</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Slide 4: Technical feasibility -->
+          <div class="slf-pitch-card">
+            <div class="slf-pitch-label">04 — Technical Feasibility</div>
+            <div class="slf-pitch-heading">Why this approach works</div>
+            <div class="slf-pitch-body">
+              <p>The design is grounded in a straightforward physical principle with no exotic materials or power requirements beyond a small recirculating pump.</p>
+              <ul class="slf-pitch-list">
+                <li><strong>Density difference</strong> — SLF and grapes have measurably different densities, enabling reliable separation in solution</li>
+                <li><strong>Sugar water</strong> — chosen over plain water to match grape Brix levels, minimizing osmotic sugar loss during the brief submersion</li>
+                <li><strong>Short contact time</strong> — grapes pass through quickly, limiting any quality impact</li>
+                <li><strong>Self-contained</strong> — closed-loop recirculation means no ongoing water supply needed in the field</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Slide 5: Cost & implementation -->
+          <div class="slf-pitch-card slf-pitch-card--full">
+            <div class="slf-pitch-label">05 — Cost &amp; Implementation</div>
+            <div class="slf-pitch-heading">Low materials cost, retrofittable design</div>
+            <div class="slf-pitch-body">
+              <div class="slf-pitch-stats">
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[$ __]</div>
+                  <div class="slf-pitch-stat-label">Estimated materials cost per unit</div>
+                </div>
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[__ hrs]</div>
+                  <div class="slf-pitch-stat-label">Estimated installation time</div>
+                </div>
+                <div class="slf-pitch-stat">
+                  <div class="slf-pitch-stat-num">[__]</div>
+                  <div class="slf-pitch-stat-label">Harvester models compatible</div>
+                </div>
+              </div>
+              <ul class="slf-pitch-list" style="margin-top:1rem;">
+                <li>Primary materials: acrylic sheet, PVC pipe, aluminum perforated sheet, small submersible pump, sugar water</li>
+                <li>Mounts beneath the existing mechanical shaker — no harvester modification required</li>
+                <li>Removable when SLF infestation is low</li>
+                <li>Prepped with a single batch of sugar water before entering the field</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -434,7 +627,7 @@ description: Design and Optimization Problem — MAE2250
         </svg>
       </button>
       <div class="slf-accordion-panel" id="panel-proto" role="region">
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 0.5rem;">
+        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 1.25rem; margin-bottom: 0.5rem;">
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>
             <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">

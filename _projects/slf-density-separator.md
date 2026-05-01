@@ -2,6 +2,7 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
+image: assets/images/SLF Photo.jpg
 ---
 
 <style>

@@ -2,7 +2,6 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
-image: assets/images/SLF Photo.jpg
 ---
 
 <style>
@@ -523,16 +522,16 @@ image: assets/images/SLF Photo.jpg
               <p>Over the past decade, SLF infestations have spread rapidly through major wine-producing regions, threatening both grape quality and harvest volume. During mechanical harvesting, the shaker arm dislodges grapes and SLF simultaneously — mixing an invasive pest directly into the collection stream.</p>
               <div class="slf-pitch-stats">
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[__]</div>
-                  <div class="slf-pitch-stat-label">States with active SLF infestations</div>
+                  <div class="slf-pitch-stat-num">19+</div>
+                  <div class="slf-pitch-stat-label">U.S. states with confirmed SLF populations (USDA APHIS, 2024)</div>
                 </div>
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[__]</div>
-                  <div class="slf-pitch-stat-label">Estimated annual crop loss</div>
+                  <div class="slf-pitch-stat-num">$554M</div>
+                  <div class="slf-pitch-stat-label">Worst-case annual economic loss estimate for Pennsylvania alone (Penn State, 2020)</div>
                 </div>
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[__]</div>
-                  <div class="slf-pitch-stat-label">Vineyards impacted in [region]</div>
+                  <div class="slf-pitch-stat-num">1,400</div>
+                  <div class="slf-pitch-stat-label">Vineyards at risk in New York State alone, generating $6.65B in economic activity</div>
                 </div>
               </div>
             </div>

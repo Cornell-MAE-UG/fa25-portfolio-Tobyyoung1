@@ -10,8 +10,8 @@ description: Design and Optimization Problem — MAE2250
   /* Override Bootstrap's .container on <main> */
   main.container {
     max-width: 100% !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 4rem !important;
+    padding-right: 4rem !important;
   }
 
   .slf-page {
@@ -19,7 +19,7 @@ description: Design and Optimization Problem — MAE2250
     max-width: 100%;
     width: 100%;
     margin: 0;
-    padding: 2rem 3rem 4rem;
+    padding: 2rem 0 4rem;
     color: #1a1a18;
     box-sizing: border-box;
   }
@@ -43,7 +43,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-subtitle {
-    font-size: 15px;
+    font-size: 17px;
     color: #5a6652;
     margin: 0 0 1.75rem;
     line-height: 1.5;
@@ -172,7 +172,7 @@ description: Design and Optimization Problem — MAE2250
 
   /* ── Content styles inside panels ── */
   .slf-panel-placeholder {
-    font-size: 13px;
+    font-size: 14px;
     color: #9aaa8e;
     font-style: italic;
     border: 1px dashed #c8d8c2;
@@ -200,7 +200,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-body {
-    font-size: 14.5px;
+    font-size: 16px;
     line-height: 1.75;
     color: #2e3830;
   }
@@ -259,7 +259,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-step-desc {
-    font-size: 12.5px;
+    font-size: 14px;
     color: #5a6a54;
     line-height: 1.5;
   }
@@ -280,7 +280,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-test-body {
-    font-size: 13px;
+    font-size: 15px;
     color: #3e4e38;
     line-height: 1.6;
   }
@@ -298,7 +298,7 @@ description: Design and Optimization Problem — MAE2250
     margin: 1rem 0;
     font-style: italic;
     color: #4a5a44;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -330,7 +330,7 @@ description: Design and Optimization Problem — MAE2250
   }
 
   .slf-score-detail {
-    font-size: 13px;
+    font-size: 15px;
     color: #5a6a54;
     line-height: 1.4;
   }
@@ -367,7 +367,7 @@ description: Design and Optimization Problem — MAE2250
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
-    font-size: 14px;
+    font-size: 16px;
     color: #2e3830;
     line-height: 1.6;
     padding: 0.5rem 0;
@@ -438,14 +438,14 @@ description: Design and Optimization Problem — MAE2250
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>
             <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="/assets/images/SLF-Separator-1.mov" type="video/quicktime">
+              <source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/mp4"><source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 2</p>
             <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="/assets/images/SLF-Separator-2.MOV" type="video/quicktime">
+              <source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/mp4"><source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>

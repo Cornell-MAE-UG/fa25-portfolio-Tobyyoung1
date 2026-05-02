@@ -614,10 +614,10 @@ image: /assets/images/SLF_Den__Sep__CAD.png
                 </div>
               </div>
               <ul class="slf-pitch-list" style="margin-top:1rem;">
-                <li>Primary materials: acrylic sheet, PVC pipe, aluminum perforated sheet, small submersible pump, sugar water</li>
-                <li>Mounts beneath the existing mechanical shaker — no harvester modification required</li>
+                <li>Primary materials: 3D-printed disks, alumnium hex bar, aluminum perforated sheet, small submersible pump, sugar water/juice</li>
+                <li>Mounts on top of the existing gondola — no harvester modification required</li>
                 <li>Removable when SLF infestation is low</li>
-                <li>Prepped with a single batch of sugar water before entering the field</li>
+                <li>Prepped with a single batch of sugar water before entering the field, or reuses grape juice from the harvester</li>
               </ul>
             </div>
           </div>

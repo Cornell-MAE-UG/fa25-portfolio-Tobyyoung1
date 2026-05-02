@@ -601,16 +601,16 @@ image: /assets/images/SLF_Den__Sep__CAD.png
             <div class="slf-pitch-body">
               <div class="slf-pitch-stats">
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[$ __]</div>
+                  <div class="slf-pitch-stat-num">~$200</div>
                   <div class="slf-pitch-stat-label">Estimated materials cost per unit</div>
                 </div>
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[__ hrs]</div>
+                  <div class="slf-pitch-stat-num">&lt;24 hrs</div>
                   <div class="slf-pitch-stat-label">Estimated installation time</div>
                 </div>
                 <div class="slf-pitch-stat">
-                  <div class="slf-pitch-stat-num">[__]</div>
-                  <div class="slf-pitch-stat-label">Harvester models compatible</div>
+                  <div class="slf-pitch-stat-num">Universal</div>
+                  <div class="slf-pitch-stat-label">Compatible with any harvester using a side-collection gondola</div>
                 </div>
               </div>
               <ul class="slf-pitch-list" style="margin-top:1rem;">

@@ -8,23 +8,25 @@ permalink: /cv/
 [Download my CV]({{ "/assets/CV.pdf" | relative_url }}) in PDF format.
 
 
-**Email:** [netID@cornell.edu](mailto:netID@cornell.edu) | | | **Phone:** +123 456 7890
-
+**Email:** [netID@cornell.edu](mailto:tgy5@cornell.edu) | | | **Phone:** +914 839 0976
 ---
 
 #### Objective
-Aspiring engineering student with a strong foundation in.... Passionate about ... and eager to apply my knowledge in real-world applications.
+Mechanical engineering student at Cornell University with hands-on experience in CAD design, 
+machining, and software development. Proven ability to contribute to high-impact engineering 
+teams through work with Cornell Hyperloop and industry partners. Seeking opportunities to apply 
+skills in mechanical design, fabrication, and problem-solving to real-world engineering challenges.
 
 ---
 
 #### Education
 - **Cornell University**  
   *Bachelor of Science in Mechanical and Aerospace Engineering*  
-  GPA: 3.8/4.0 | Graduation: Month, Year
+  GPA: 3.7/4.0 | Graduation: May, 2028
 
-- **[High School Name]**  
+- **Briarcliff High School**  
   *High School Diploma*  
-  Graduation: [Month, Year]
+  Graduation: May, 2024
 
 ---
 

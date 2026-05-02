@@ -2,6 +2,7 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
+image: assets/images/SLF_Den__Sep__CAD.png
 ---
 
 <style>
@@ -626,6 +627,10 @@ description: Design and Optimization Problem — MAE2250
         </svg>
       </button>
       <div class="slf-accordion-panel" id="panel-proto" role="region">
+        <div style="margin-bottom: 1.25rem;">
+          <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">CAD Model</p>
+          <img src="{{ '/assets/images/SLF_Den__Sep__CAD.png' | relative_url }}" alt="SLF Density Separator CAD model" style="width:100%; max-width:640px; border-radius:6px; border:1px solid #d4dece; background:#1a1a18; display:block;">
+        </div>
         <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 1.25rem; margin-bottom: 0.5rem;">
           <div>
             <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>

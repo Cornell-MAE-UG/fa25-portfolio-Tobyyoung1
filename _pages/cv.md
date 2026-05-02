@@ -5,7 +5,7 @@ permalink: /cv/
 ---
 ## Curriculum Vitae
 
-[Download my CV]({{ "/assets/CV.pdf" | relative_url }}) in PDF format.
+[Download my CV]({{ "/assets/Toby_Young_CV.pdf" | relative_url }}) in PDF format.
 
 
 **Email:** [tgy5@cornell.edu](mailto:tgy5@cornell.edu) | | | **Phone:** +914 839 0976

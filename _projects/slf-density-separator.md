@@ -5,12 +5,7 @@ description: Design and Optimization Problem — MAE2250
 ---
 
 <style>
-   h1.post-title,
-  h1.page-title,
-  .page-header h1,
-  header > h1 {
-    display: none;
-  }
+
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
 
   main.container {

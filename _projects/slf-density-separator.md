@@ -2,13 +2,11 @@
 layout: project
 title: SLF Density Separator
 description: Design and Optimization Problem — MAE2250
-image: /assets/images/SLF_Den__Sep__CAD.png
 ---
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
 
-  /* Override Bootstrap's .container on <main> */
   main.container {
     max-width: 100% !important;
     padding-left: 4rem !important;
@@ -78,7 +76,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     opacity: 0.7;
   }
 
-  /* ── Accordion TOC ── */
   .slf-toc-label {
     font-family: 'DM Mono', monospace;
     font-size: 10.5px;
@@ -117,13 +114,8 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     transition: background 0.15s;
   }
 
-  .slf-accordion-trigger:hover {
-    background: #eff3ec;
-  }
-
-  .slf-accordion-trigger[aria-expanded="true"] {
-    background: #eaf1e6;
-  }
+  .slf-accordion-trigger:hover { background: #eff3ec; }
+  .slf-accordion-trigger[aria-expanded="true"] { background: #eaf1e6; }
 
   .slf-acc-num {
     font-family: 'DM Mono', monospace;
@@ -167,20 +159,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     border-top: 1px solid #e4ede0;
   }
 
-  .slf-accordion-panel.is-open {
-    display: block;
-  }
-
-  /* ── Content styles inside panels ── */
-  .slf-panel-placeholder {
-    font-size: 14px;
-    color: #9aaa8e;
-    font-style: italic;
-    border: 1px dashed #c8d8c2;
-    border-radius: 6px;
-    padding: 1rem 1.25rem;
-    text-align: center;
-  }
+  .slf-accordion-panel.is-open { display: block; }
 
   .slf-section-label {
     font-family: 'DM Mono', monospace;
@@ -206,18 +185,14 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     color: #2e3830;
   }
 
-  .slf-body p {
-    margin: 0 0 0.9rem;
-  }
+  .slf-body p { margin: 0 0 0.9rem; }
 
   .slf-body ul, .slf-body ol {
     margin: 0 0 0.9rem;
     padding-left: 1.4rem;
   }
 
-  .slf-body li {
-    margin-bottom: 0.35rem;
-  }
+  .slf-body li { margin-bottom: 0.35rem; }
 
   .slf-body strong {
     font-weight: 600;
@@ -336,9 +311,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     line-height: 1.4;
   }
 
-  .slf-score-detail strong {
-    color: #2a3328;
-  }
+  .slf-score-detail strong { color: #2a3328; }
 
   .slf-tag-row {
     display: flex;
@@ -400,9 +373,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     padding: 1.25rem 1.4rem 1.4rem;
   }
 
-  .slf-pitch-card--full {
-    grid-column: 1 / -1;
-  }
+  .slf-pitch-card--full { grid-column: 1 / -1; }
 
   .slf-pitch-label {
     font-family: 'DM Mono', monospace;
@@ -428,9 +399,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     line-height: 1.7;
   }
 
-  .slf-pitch-body p {
-    margin: 0 0 0.75rem;
-  }
+  .slf-pitch-body p { margin: 0 0 0.75rem; }
 
   .slf-pitch-body strong {
     font-weight: 600;
@@ -442,9 +411,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     padding-left: 1.25rem;
   }
 
-  .slf-pitch-list li {
-    margin-bottom: 0.4rem;
-  }
+  .slf-pitch-list li { margin-bottom: 0.4rem; }
 
   .slf-pitch-stats {
     display: grid;
@@ -475,11 +442,50 @@ image: /assets/images/SLF_Den__Sep__CAD.png
     line-height: 1.4;
   }
 
+  /* ── Prototype media grid ── */
+  .slf-media-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #7a8c6e;
+    margin: 0 0 0.5rem;
+  }
+
+  .slf-media-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .slf-media-grid > div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .slf-media-grid img,
+  .slf-media-grid video {
+    width: 100%;
+    flex: 1;
+    border-radius: 6px;
+    border: 1px solid #d4dece;
+    display: block;
+    /* Keep consistent height across all three */
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #1a1a18;
+  }
+
+  .slf-media-grid video {
+    background: #f0f5ee;
+  }
+
   @media (max-width: 640px) {
     .slf-pitch-grid { grid-template-columns: 1fr; }
     .slf-pitch-stats { grid-template-columns: 1fr; }
+    .slf-media-grid { grid-template-columns: 1fr; }
   }
-
 </style>
 
 <div class="slf-page">
@@ -500,7 +506,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
   <p class="slf-toc-label">Milestones</p>
   <div class="slf-accordion" role="list">
 
-    <!-- Milestone 1 -->
+    <!-- Milestone 1: Client Pitch -->
     <div class="slf-accordion-item">
       <button class="slf-accordion-trigger" aria-expanded="false" aria-controls="panel-pitch" onclick="togglePanel(this, 'panel-pitch')">
         <span class="slf-acc-num">O3</span>
@@ -515,7 +521,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
       <div class="slf-accordion-panel" id="panel-pitch" role="region">
         <div class="slf-pitch-grid">
 
-          <!-- Slide 1: Problem -->
           <div class="slf-pitch-card slf-pitch-card--full">
             <div class="slf-pitch-label">01 — Problem Overview</div>
             <div class="slf-pitch-heading">Spotted Lanternfly is degrading vineyard harvests across the U.S.</div>
@@ -538,7 +543,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
             </div>
           </div>
 
-          <!-- Slide 2: Sub-problem focus -->
           <div class="slf-pitch-card">
             <div class="slf-pitch-label">02 — Focused Sub-Problem</div>
             <div class="slf-pitch-heading">The harvest moment</div>
@@ -552,7 +556,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
             </div>
           </div>
 
-          <!-- Slide 3: Solution concept -->
           <div class="slf-pitch-card">
             <div class="slf-pitch-label">03 — Proposed Solution</div>
             <div class="slf-pitch-heading">Density separation in sugar water</div>
@@ -567,7 +570,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
             </div>
           </div>
 
-          <!-- Slide 4: Technical feasibility -->
           <div class="slf-pitch-card">
             <div class="slf-pitch-label">04 — Technical Feasibility</div>
             <div class="slf-pitch-heading">Why this approach works</div>
@@ -582,7 +584,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
             </div>
           </div>
 
-          <!-- Slide 5: Cost & implementation -->
           <div class="slf-pitch-card slf-pitch-card--full">
             <div class="slf-pitch-label">05 — Cost &amp; Implementation</div>
             <div class="slf-pitch-heading">Low materials cost, retrofittable design</div>
@@ -614,7 +615,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
       </div>
     </div>
 
-    <!-- Milestone 2 -->
+    <!-- Milestone 2: Functional Prototype -->
     <div class="slf-accordion-item">
       <button class="slf-accordion-trigger" aria-expanded="false" aria-controls="panel-proto" onclick="togglePanel(this, 'panel-proto')">
         <span class="slf-acc-num">O5</span>
@@ -627,22 +628,27 @@ image: /assets/images/SLF_Den__Sep__CAD.png
         </svg>
       </button>
       <div class="slf-accordion-panel" id="panel-proto" role="region">
-        <div style="margin-bottom: 1.25rem;">
-          <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">CAD Model</p>
-          <img src="{{ '/assets/images/SLF_Den__Sep__CAD.png' | relative_url }}" alt="SLF Density Separator CAD model" style="width:100%; max-width:640px; border-radius:6px; border:1px solid #d4dece; background:#1a1a18; display:block;">
-        </div>
-        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 1.25rem; margin-bottom: 0.5rem;">
+        <!-- CAD image + two demo videos, all in one equal-height row -->
+        <div class="slf-media-grid">
           <div>
-            <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 1</p>
-            <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/mp4"><source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/quicktime">
+            <p class="slf-media-label">CAD Model</p>
+            <img
+              src="{{ '/assets/images/SLF_Den__Sep__CAD.png' | relative_url }}"
+              alt="SLF Density Separator CAD model">
+          </div>
+          <div>
+            <p class="slf-media-label">Demo 1</p>
+            <video controls>
+              <source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/mp4">
+              <source src="{{ '/assets/images/SLF-Separator-1.mov' | relative_url }}" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>
           <div>
-            <p style="font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:#7a8c6e; margin:0 0 0.5rem;">Demo 2</p>
-            <video controls style="width:100%; border-radius:6px; border:1px solid #d4dece; background:#f0f5ee;">
-              <source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/mp4"><source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/quicktime">
+            <p class="slf-media-label">Demo 2</p>
+            <video controls>
+              <source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/mp4">
+              <source src="{{ '/assets/images/SLF-Separator-2.MOV' | relative_url }}" type="video/quicktime">
               Your browser does not support this video format.
             </video>
           </div>
@@ -650,7 +656,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
       </div>
     </div>
 
-    <!-- Milestone 3 -->
+    <!-- Milestone 3: Client Report -->
     <div class="slf-accordion-item">
       <button class="slf-accordion-trigger" aria-expanded="false" aria-controls="panel-report" onclick="togglePanel(this, 'panel-report')">
         <span class="slf-acc-num">O6</span>
@@ -680,7 +686,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
           <span class="slf-tag">Vineyard Engineering</span>
         </div>
 
-        <!-- Problem -->
         <p class="slf-section-label">Context &amp; Problem</p>
         <h2 class="slf-section-title">Why SLF in the harvest bin matters</h2>
         <div class="slf-body">
@@ -691,7 +696,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
 
         <hr class="slf-divider">
 
-        <!-- Solution -->
         <p class="slf-section-label">Proposed Solution</p>
         <h2 class="slf-section-title">A recirculating sugar water separation system</h2>
         <div class="slf-body">
@@ -727,7 +731,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
 
         <hr class="slf-divider">
 
-        <!-- Prototype -->
         <p class="slf-section-label">Prototype &amp; Testing</p>
         <h2 class="slf-section-title">What we built and what we learned</h2>
         <div class="slf-body">
@@ -748,7 +751,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
 
         <hr class="slf-divider">
 
-        <!-- Conclusion -->
         <p class="slf-section-label">Conclusion &amp; Next Steps</p>
         <h2 class="slf-section-title">Promising — not yet field-ready</h2>
         <div class="slf-body">
@@ -764,7 +766,6 @@ image: /assets/images/SLF_Den__Sep__CAD.png
 
         <hr class="slf-divider">
 
-        <!-- Client Feedback -->
         <p class="slf-section-label">Client Feedback</p>
         <h2 class="slf-section-title">Response from Jennifer Russo, vineyard client</h2>
         <div class="slf-quote-block">
@@ -781,7 +782,7 @@ image: /assets/images/SLF_Den__Sep__CAD.png
           </ul>
         </div>
 
-      </div><!-- end panel-report -->
+      </div>
     </div>
 
   </div><!-- end accordion -->
@@ -793,7 +794,6 @@ function togglePanel(btn, panelId) {
   var panel = document.getElementById(panelId);
   var isOpen = btn.getAttribute('aria-expanded') === 'true';
 
-  // Close all panels
   document.querySelectorAll('.slf-accordion-trigger').forEach(function(b) {
     b.setAttribute('aria-expanded', 'false');
   });
@@ -801,7 +801,6 @@ function togglePanel(btn, panelId) {
     p.classList.remove('is-open');
   });
 
-  // Open clicked one (if it was closed)
   if (!isOpen) {
     btn.setAttribute('aria-expanded', 'true');
     panel.classList.add('is-open');

@@ -467,17 +467,26 @@ image: /assets/images/SLF_Den__Sep__CAD.png
   }
 
   .slf-media-grid img,
-  .slf-media-grid video {
-    width: 100%;
-    flex: 1;
-    border-radius: 6px;
-    border: 1px solid #d4dece;
-    display: block;
-    /* Keep consistent height across all three */
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    background: #1a1a18;
-  }
+.slf-media-grid video {
+  width: 100%;
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid #d4dece;
+  display: block;
+  aspect-ratio: 4 / 3;
+  background: #1a1a18;
+}
+
+.slf-media-grid img {
+  object-fit: contain;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.slf-media-grid video {
+  object-fit: cover;
+  background: #f0f5ee;
+}
 
   .slf-media-grid video {
     background: #f0f5ee;

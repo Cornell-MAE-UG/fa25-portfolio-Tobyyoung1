@@ -34,9 +34,9 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   /* Table — alternating rows use a warm tan so they contrast against the page bg */
   .pc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.88rem; }
   .pc th { background: #3a3f58; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
-  .pc td { padding: 7px 12px; border-bottom: 1px solid #dde0ea; }
-  .pc tr:nth-child(even) td { background: #dfe3f0; }
-  .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #c8cde3; }
+  .pc td { padding: 7px 12px; border-bottom: 1px solid #ccc; background: #fff; }
+  .pc tr:nth-child(even) td { background: #e8e8e8; }
+  .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #d0d0d0; }
 
   .status-grid { display: flex; gap: 1rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap; }
   .status-col { flex: 1; min-width: 200px; background: #eceef5; border-radius: 8px; padding: 0.9rem 1rem; }
@@ -147,31 +147,6 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 </table>
 
 <p>Maximum deflection occurs at the outer corners of the upper mounting plate — the furthest points from the constrained support — as expected. The clamping interface and guide pin bores remain essentially rigid. No reinforcement is required.</p>
-
-<hr>
-
-<h2>Assembly Status</h2>
-
-<div class="status-grid">
-  <div class="status-col done">
-    <h4>✓ Completed</h4>
-    <ul>
-      <li>All aluminum components machined</li>
-      <li>Pneumatic actuators installed</li>
-      <li>C-bracket assembly nearly complete</li>
-      <li>FEA simulation validated</li>
-    </ul>
-  </div>
-  <div class="status-col todo">
-    <h4>⧖ Remaining</h4>
-    <ul>
-      <li>Linear guide rails — awaiting delivery</li>
-      <li>Install return spring</li>
-      <li>Connect to pneumatic circuit</li>
-      <li>Integrated pressure test</li>
-    </ul>
-  </div>
-</div>
 
 <hr>
 

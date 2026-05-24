@@ -21,8 +21,8 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   .stat-box .val { font-size: 1.4rem; font-weight: 700; color: #3a3f58; line-height: 1; }
   .stat-box .lbl { font-size: 0.72rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-  .img-right { float: right; width: 42%; margin: 0 0 1.2rem 1.5rem; }
-  .img-left  { float: left;  width: 42%; margin: 0 1.5rem 1.2rem 0; }
+  .img-right { float: right; width: 38%; margin: 0 0 1.2rem 1.5rem; }
+  .img-left  { float: left;  width: 38%; margin: 0 1.5rem 1.2rem 0; }
   .img-full  { display: block; width: 80%; margin: 1.25rem auto; }
   .img-right img, .img-left img, .img-full img {
     width: 100%; border-radius: 8px;
@@ -119,17 +119,16 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
     <p class="img-caption">Annotated pneumatic circuit — tank, regulator, E.B.V., and cylinders</p>
   </div>
 
-<table>
-  <thead><tr><th>Parameter</th><th>Previous Regulator</th><th>Current Regulator</th></tr></thead>
-  <tbody>
-    <tr><td>Inlet pressure</td><td>300 psi</td><td>6000 psi</td></tr>
-    <tr><td>Outlet pressure range</td><td>0–125 psi</td><td>0–400 psi</td></tr>
-    <tr><td>Braking cycles per tank</td><td>1–2</td><td>180–250</td></tr>
-  </tbody>
-</table>
+  <table>
+    <thead><tr><th>Parameter</th><th>Previous Regulator</th><th>Current Regulator</th></tr></thead>
+    <tbody>
+      <tr><td>Inlet pressure</td><td>300 psi</td><td>6000 psi</td></tr>
+      <tr><td>Outlet pressure range</td><td>0–125 psi</td><td>0–400 psi</td></tr>
+      <tr><td>Braking cycles per tank</td><td>1–2</td><td>180–250</td></tr>
+    </tbody>
+  </table>
 
-<p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
-
+  <p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
 </div>
 
 <hr>

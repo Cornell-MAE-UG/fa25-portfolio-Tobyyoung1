@@ -113,6 +113,12 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 
 <h3>Pneumatic Circuit</h3>
 
+<div class="clearfix">
+  <div class="img-right">
+    <img src="{{ '/assets/images/Pneumatics-Diagram.png' | relative_url }}" alt="Physical pneumatic circuit layout with annotated components">
+    <p class="img-caption">Annotated pneumatic circuit — tank, regulator, E.B.V., and cylinders</p>
+  </div>
+
 <table>
   <thead><tr><th>Parameter</th><th>Previous Regulator</th><th>Current Regulator</th></tr></thead>
   <tbody>
@@ -123,6 +129,8 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 </table>
 
 <p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
+
+</div>
 
 <hr>
 
@@ -147,6 +155,31 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 </table>
 
 <p>Maximum deflection occurs at the outer corners of the upper mounting plate — the furthest points from the constrained support — as expected. The clamping interface and guide pin bores remain essentially rigid. No reinforcement is required.</p>
+
+<hr>
+
+<h2>Assembly Status</h2>
+
+<div class="status-grid">
+  <div class="status-col done">
+    <h4>✓ Completed</h4>
+    <ul>
+      <li>All aluminum components machined</li>
+      <li>Pneumatic actuators installed</li>
+      <li>C-bracket assembly nearly complete</li>
+      <li>FEA simulation validated</li>
+    </ul>
+  </div>
+  <div class="status-col todo">
+    <h4>⧖ Remaining</h4>
+    <ul>
+      <li>Linear guide rails — awaiting delivery</li>
+      <li>Install return spring</li>
+      <li>Connect to pneumatic circuit</li>
+      <li>Integrated pressure test</li>
+    </ul>
+  </div>
+</div>
 
 <hr>
 

@@ -6,178 +6,209 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 ---
 
 <style>
-.project-content {
-  max-width: 100%;
-  padding: 0 1in;
-  box-sizing: border-box;
-}
-.project-content img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  margin: 1.5rem 0;
-  border-radius: 6px;
-}
+  /* ── Page width ── */
+  .container { max-width: 1000px; padding: 0 1in; }
+
+  /* ── Project content reset ── */
+  .pc { font-size: 0.97rem; line-height: 1.75; color: #333; }
+  .pc h2 { font-size: 1.5rem; margin: 2.5rem 0 0.5rem; border-bottom: 2px solid #d0d4e0; padding-bottom: 0.3rem; }
+  .pc h3 { font-size: 1.1rem; margin: 1.75rem 0 0.4rem; color: #3a3f58; }
+  .pc p  { margin: 0 0 0.9rem; }
+  .pc ul, .pc ol { margin: 0 0 0.9rem 1.25rem; }
+  .pc li { margin-bottom: 0.3rem; }
+  .pc hr { border: none; border-top: 1px solid #e2e4ec; margin: 2rem 0; }
+
+  /* ── Stat bar ── */
+  .stat-bar { display: flex; gap: 12px; margin: 1.25rem 0 1.75rem; flex-wrap: wrap; }
+  .stat-box { flex: 1; min-width: 130px; background: #f0f2f8; border-radius: 8px; padding: 0.7rem 1rem; }
+  .stat-box .val { font-size: 1.4rem; font-weight: 700; color: #3a3f58; line-height: 1; }
+  .stat-box .lbl { font-size: 0.72rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ── Image layouts ── */
+  .img-right { float: right; width: 42%; margin: 0 0 1.2rem 1.5rem; }
+  .img-left  { float: left;  width: 42%; margin: 0 1.5rem 1.2rem 0; }
+  .img-full  { display: block; width: 80%; margin: 1.25rem auto; }
+  .img-right img, .img-left img, .img-full img {
+    width: 100%; border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.13);
+  }
+  .img-caption {
+    font-size: 0.75rem; color: #777; text-align: center;
+    margin-top: 5px; font-style: italic;
+  }
+  .clearfix::after { content: ''; display: table; clear: both; }
+
+  /* ── Tables ── */
+  .pc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.88rem; }
+  .pc th { background: #3a3f58; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
+  .pc td { padding: 7px 12px; border-bottom: 1px solid #e4e6ee; }
+  .pc tr:nth-child(even) td { background: #f7f8fb; }
+  .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #eef0f6; }
+
+  /* ── Status pills ── */
+  .status-grid { display: flex; gap: 1rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap; }
+  .status-col { flex: 1; min-width: 200px; background: #f7f8fb; border-radius: 8px; padding: 0.9rem 1rem; }
+  .status-col h4 { margin: 0 0 0.6rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #3a3f58; }
+  .status-col ul { margin: 0; padding-left: 1.1rem; }
+  .status-col li { font-size: 0.87rem; margin-bottom: 0.3rem; }
+  .done li::marker  { color: #3a7d44; }
+  .todo li::marker  { color: #c0392b; }
 </style>
 
-<div class="project-content" markdown="1">
+<div class="pc">
 
-## Overview
+<h2>Overview</h2>
 
-Cornell Hyperloop's braking system consists of two complementary subsystems functioning on vastly different principles: frictional braking and magnetic braking. While both are crucial to the safe and efficient deceleration of the pod, the **frictional braking system is the primary mechanism**, while magnetic brakes provide initial deceleration at high speeds before the frictional brakes bring the pod to a complete stop.
+<div class="img-right">
+  <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-1.png' | relative_url }}" alt="C-Bracket isometric CAD render">
+  <p class="img-caption">C-Bracket assembly — SolidWorks CAD render</p>
+</div>
 
-The frictional brakes function as a contact-based braking system powered by a pneumatic assembly. A pressurized cylinder activates the system, allowing a C-bracket assembly to clamp onto the I-beam track until the pod stops. The use of an electric ball valve creates a **dead-man switch** — a fail-safe mechanism that engages braking automatically in the event of a power cut.
+<p>Cornell Hyperloop's braking system consists of two complementary subsystems: frictional braking and magnetic braking. The <strong>frictional braking system is the primary mechanism</strong> — it brings the pod to a complete stop after the magnetic brakes have handled initial deceleration at high speed.</p>
 
----
+<p>A pressurized pneumatic cylinder activates a C-bracket assembly that clamps onto the I-beam track. An electric ball valve creates a <strong>dead-man switch</strong>: if the pod loses power at any point, the system defaults to brakes engaged — a competition safety requirement.</p>
 
-## Frictional Braking System — Full Analysis
+<div class="stat-bar">
+  <div class="stat-box"><div class="val">6000 psi</div><div class="lbl">Inlet pressure</div></div>
+  <div class="stat-box"><div class="val">0–400 psi</div><div class="lbl">Outlet range</div></div>
+  <div class="stat-box"><div class="val">180–250</div><div class="lbl">Brake cycles / tank</div></div>
+  <div class="stat-box"><div class="val">6.65 µm</div><div class="lbl">Max FEA deformation</div></div>
+  <div class="stat-box"><div class="val">$554</div><div class="lbl">BOM total</div></div>
+</div>
 
-### Design Concept
+<div class="clearfix"></div>
+<hr>
 
-The frictional braking system applies a normal clamping force to the track I-beam via two brake pads, one above and one below the beam's flange. This sandwich-style clamping approach ensures symmetric force application, minimizing lateral bending moments on the beam and the mounting structure. The assembly is designed to be self-aligning along the track axis — accommodating minor lateral misalignment without compromising braking performance.
+<h2>Frictional Braking System</h2>
 
-The core design philosophy prioritizes **fail-safe operation**: the system defaults to engaged (brakes on) when unpowered. If the pod loses electrical or pneumatic supply at any point, the return springs drive the brake pads into contact with the I-beam automatically, bringing the pod to a controlled stop.
+<h3>Design Concept</h3>
+<p>The system applies a symmetric clamping force to the I-beam flange via brake pads above and below, minimizing lateral bending on both the beam and the mount. The assembly self-aligns along the track axis to tolerate minor positional variation without compromising performance.</p>
 
----
+<hr>
 
-### C-Bracket Assembly
+<h3>C-Bracket Assembly</h3>
 
-<img src="{{ '/assets/images/C-Bracket-Brakes-CAD-1.png' | relative_url }}" alt="C-Bracket CAD — isometric view">
+<div class="clearfix">
+  <div class="img-left">
+    <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-2.png' | relative_url }}" alt="C-Bracket cross-section showing actuator layout">
+    <p class="img-caption">Cross-section view — dual actuator arrangement</p>
+  </div>
 
-The structural backbone of the frictional brake is the **C-bracket**, machined from 6061 aluminum stock (McMaster 89155K11 and 89155K113). The C-shape spans the I-beam flange, with brake pad carriers on the upper and lower arms. Key structural features include:
+  <p>The structural backbone is the <strong>C-bracket</strong>, machined from 6061 aluminum stock (McMaster 89155K11, 89155K113). Key features:</p>
+  <ul>
+    <li><strong>Upper plate</strong> — receives actuator load, distributes it through four guide pins to the moving brake carrier</li>
+    <li><strong>Lower plate (fixed)</strong> — houses the stationary lower brake pad, bolted rigidly to the bracket body</li>
+    <li><strong>Guide columns</strong> — four precision steel pins constrain carrier motion to the actuation axis, preventing lateral drift under load</li>
+    <li><strong>Gusset reinforcement</strong> — aluminum gussets (McMaster 5537T518) epoxied and bolted at inner corners to stiffen against the clamping bending moment</li>
+  </ul>
+  <p>Aluminum was chosen over steel for ~65% weight savings. FEA confirmed deflection at the clamping interface stays under 1.5 µm — within MGN15H rail clearance.</p>
+</div>
 
-- **Upper plate:** Receives the pneumatic actuator load and distributes it through four guide pins into the moving brake pad carrier.
-- **Lower plate (fixed):** Houses the stationary lower brake pad, bolted rigidly to the C-bracket body.
-- **Guide columns:** Four precision-ground steel pins provide vertical alignment for the moving upper carrier, constraining motion to the actuation axis and preventing lateral drift under braking loads.
-- **Gusset reinforcement:** Aluminum gussets (McMaster 5537T518) are epoxied and bolted at the bracket's inner corners to stiffen the structure against the bending moment induced by the clamping force couple.
+<hr>
 
-The choice of aluminum over steel was deliberate: at the scale of this assembly, the weight savings (~65%) outweigh the stiffness reduction, and FEA confirmed that structural deflection under peak load remains under 7 µm.
+<h3>Physical Assembly</h3>
 
----
+<div class="clearfix">
+  <div class="img-right">
+    <img src="{{ '/assets/images/Physical-C-Bracket-Brakes.png' | relative_url }}" alt="Machined and assembled C-bracket brake unit">
+    <p class="img-caption">Finished assembly — machined in-house at Cornell</p>
+  </div>
 
-### Dual-Actuator Configuration
+  <p>The machined assembly closely matches the CAD model. Visible components include the centrally mounted pneumatic actuator, lateral return springs, tapped aluminum plates, and the lower rubber brake pad (McMaster 6175K813).</p>
+  <p>All features were machined in the Cornell engineering shop using ½"-13 and 10-32 taps (McMaster 26035A183, 2522A819). Gusset interfaces were bonded with epoxy in addition to mechanical fastening.</p>
+</div>
 
-<img src="{{ '/assets/images/C-Bracket-Brakes-CAD-2.png' | relative_url }}" alt="C-Bracket CAD — cross-section view showing dual actuator layout">
+<hr>
 
-Each brake unit uses **two pneumatic actuators** (McMaster 6453k112) mounted symmetrically on the upper plate. Operating in parallel, they together deliver the clamping force required to generate sufficient friction on the I-beam. The symmetric placement ensures the force resultant passes through the centroid of the brake pad contact area, preventing the pad carrier from tilting under load — a critical design constraint that prevents uneven pad wear and non-uniform pressure distribution.
+<h3>Linear Guide Rail System</h3>
+<p>Vertical travel of the brake pad carrier is guided by <strong>MGN15H linear rails and bearing blocks</strong> (LimoBearing), providing low-friction translation, high off-axis rigidity, and repeatable engagement geometry across hundreds of braking cycles. The MGN15H was selected for its compact footprint at ~800 N radial load rating — above the anticipated lateral force components.</p>
 
-The actuators are single-acting with spring return: compressed air drives the rod downward to engage; the integral spring retracts it when pressure is released. A return spring (Century Spring 80632CS) on the assembly provides supplemental retraction force and contributes to the fail-safe engagement behavior at the system level.
+<hr>
 
-The actuators are fastened to the upper plate via dedicated actuator screws (McMaster 92949A151), and the moving carrier is connected to the actuator rods through a floating coupler that accommodates minor angular misalignment between the two actuator axes.
+<h3>Pneumatic Circuit</h3>
 
----
+<table>
+  <thead><tr><th>Parameter</th><th>Previous Regulator</th><th>Current Regulator</th></tr></thead>
+  <tbody>
+    <tr><td>Inlet pressure</td><td>300 psi</td><td>6000 psi</td></tr>
+    <tr><td>Outlet pressure range</td><td>0–125 psi</td><td>0–400 psi</td></tr>
+    <tr><td>Braking cycles per tank</td><td>1–2</td><td>180–250</td></tr>
+  </tbody>
+</table>
 
-### Linear Guide Rail System
+<p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — this is the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
 
-Precise vertical travel of the brake pad carrier is controlled by **MGN15H linear guide rails and bearing blocks** (LimoBearing). These miniature linear guides provide:
+<hr>
 
-- Smooth, low-friction translation along the actuation axis
-- High rigidity against off-axis moments generated during pad contact
-- Consistent travel geometry, ensuring repeatable pad engagement across braking cycles
+<h2>Structural Analysis (FEA)</h2>
 
-The rail blocks are mounted to the C-bracket side walls, with the rail carriages fixed to the moving upper pad carrier. The MGN15H profile was selected for its compact form factor relative to the load rating required — rated for ~800 N radial load, well above the lateral force components anticipated during braking.
+<div class="img-full">
+  <img src="{{ '/assets/images/Frictional-Braking-Ansys.png' | relative_url }}" alt="ANSYS total deformation result — December 2025">
+  <p class="img-caption">ANSYS Static Structural — Total Deformation (Dec 1, 2025). Max deformation 6.65 µm at mounting plate corners.</p>
+</div>
 
----
+<p>Static structural FEA in <strong>ANSYS Mechanical</strong> validated the C-bracket under peak braking loads. Fixed supports were applied at the chassis mounting interface; actuator load was applied downward through the upper plate; I-beam contact reaction was applied at the lower pad surface.</p>
 
-### Physical Assembly
+<table>
+  <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Analysis type</td><td>Static Structural — Total Deformation</td></tr>
+    <tr><td>Maximum deformation</td><td>6.65 × 10⁻⁶ m (6.65 µm) — at mounting plate corners</td></tr>
+    <tr><td>Clamping interface deformation</td><td>&lt; 1.5 µm (blue-cyan range)</td></tr>
+    <tr><td>MGN15H rail clearance</td><td>~10–20 µm — deformation well within tolerance</td></tr>
+    <tr><td>Date run</td><td>December 1, 2025</td></tr>
+  </tbody>
+</table>
 
-<img src="{{ '/assets/images/Physical-C-Bracket-Brakes.png' | relative_url }}" alt="Physical C-Bracket brake assembly — machined and assembled">
+<p>Maximum deflection occurs at the outer corners of the upper mounting plate — the furthest points from the constrained support — as expected. The clamping interface and guide pin bores remain essentially rigid. No reinforcement is required.</p>
 
-The machined and assembled C-bracket unit closely matches the CAD model. Visible in the physical assembly:
+<hr>
 
-- Pneumatic actuator mounted centrally on the upper plate
-- Return springs installed at the bracket's lateral faces
-- Machined aluminum plates with tapped holes for guide pins and actuator screws
-- Brake pad (black rubber composite, McMaster 6175K813) bonded to the lower fixed carrier
+<h2>Assembly Status</h2>
 
-Machining was completed in-house using the Cornell engineering machine shop. All tapped features were cut using McMaster taps sized for ½"-13 and 10-32 thread specifications (26035A183, 2522A819). Epoxy was used at the gusset interfaces in addition to mechanical fastening to maximize joint stiffness.
+<div class="status-grid">
+  <div class="status-col done">
+    <h4>✓ Completed</h4>
+    <ul>
+      <li>All aluminum components machined</li>
+      <li>Pneumatic actuators installed</li>
+      <li>C-bracket assembly nearly complete</li>
+      <li>FEA simulation validated</li>
+    </ul>
+  </div>
+  <div class="status-col todo">
+    <h4>⧖ Remaining</h4>
+    <ul>
+      <li>Linear guide rails — awaiting delivery</li>
+      <li>Install return spring</li>
+      <li>Connect to pneumatic circuit</li>
+      <li>Integrated pressure test</li>
+    </ul>
+  </div>
+</div>
 
----
+<hr>
 
-### Pneumatic Circuit
+<h2>Bill of Materials</h2>
 
-The pneumatic supply system was designed around two key constraints: maximizing braking cycles per tank, and supporting the higher outlet pressures required by the new actuator configuration.
-
-| Parameter | Previous Regulator | Current Regulator |
-|---|---|---|
-| Inlet pressure | 300 psi | 6000 psi |
-| Outlet pressure range | 0–125 psi | 0–400 psi |
-| Braking cycles per tank | 1–2 | 180–250 |
-
-**Circuit layout (tank to actuators):**
-
-1. High-pressure tank → Manual shutoff valve
-2. Manual valve → ¼in female T fitting → Pressure regulator
-3. Regulator → Electric ball valve (E.B.V.)
-4. E.B.V. → 2-way air split → two pneumatic cylinders
-5. Pressure gauge teed off downstream of regulator for real-time monitoring
-
-The **electric ball valve** is the central fail-safe element. In its default (de-energized) state, the valve vents the actuator supply line to atmosphere, causing the springs to engage the brakes. Only an active electrical signal holds the valve open and keeps the brakes retracted — this is the dead-man switch behavior required for competition safety compliance.
-
-Remaining procurement items: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee brass fitting pipe.
-
----
-
-## Structural Analysis (FEA)
-
-<img src="{{ '/assets/images/Frictional-Braking-Ansys.png' | relative_url }}" alt="ANSYS Static Structural — Total Deformation result">
-
-A static structural finite element analysis was performed in **ANSYS Mechanical** to validate the C-bracket assembly under peak braking loads (December 1, 2025).
-
-### Boundary Conditions
-
-- Fixed supports applied at the mounting interface between the C-bracket and the pod chassis frame
-- Actuator load applied downward through the upper plate in the direction of brake engagement
-- Reaction force applied at the lower pad surface, representing the I-beam contact reaction
-
-### Results
-
-| Metric | Value |
-|---|---|
-| Analysis type | Static Structural — Total Deformation |
-| Maximum deformation | 6.65 × 10⁻⁶ m (6.65 µm) |
-| Location of maximum | Mounting plate corners (cantilevered extremities) |
-| Minimum deformation | 0 m (fixed mounting face) |
-| Date run | December 1, 2025 |
-
-### Interpretation
-
-The deformation contour shows that the highest deflection occurs at the outer corners of the upper mounting plate — a predictable result, as these regions are furthest from the constrained support points and experience the largest bending moment arm. Critically, the **clamping interface and guide pin bores** remain in the blue-to-cyan range, indicating deflections below 1.5 µm — well within the running clearance of the MGN15H guide rail system (~10–20 µm). The aluminum C-bracket does not require reinforcement for this load case.
-
----
-
-## Assembly Status
-
-### Completed
-- Finished machining all aluminum components (C-bracket body, upper and lower carriers, guide pin bores)
-- Installed pneumatic actuators and bearing screws
-- Nearly completed full brake assembly
-
-### Remaining
-- Attach MGN15H linear guide rails (awaiting delivery from LimoBearing)
-- Install return spring
-- Connect to pneumatic circuit and conduct integrated pressure test
-
----
-
-## Bill of Materials
-
-| Item | Manufacturer | Part Number | Unit Price | Total |
-|---|---|---|---|---|
-| Springs | Century Spring | 80632CS | $9.68 | $38.72 |
-| Braking Pads | McMaster | 6175K813 | $10.34 | $10.34 |
-| Guide Rails and Bearings | LimoBearing | MGN15H | $10.35 | $41.40 |
-| Gussets | McMaster | 5537T518 | $5.09 | $40.72 |
-| Pneumatic Actuators | McMaster | 6453k112 | $168.09 | $336.18 |
-| Plate Screws | Amazon | n/a | $14.99 | $14.99 |
-| Bearing Screws | McMaster | 92467A469 | $8.65 | $8.65 |
-| Actuator Screws | McMaster | 92949A151 | $5.92 | $5.92 |
-| Stock for C-bracket | McMaster | 89155K11 | $18.89 | $18.89 |
-| Stock for C-bracket | McMaster | 89155K113 | $10.81 | $10.81 |
-| Tap ½"-13, 1-21/32" Thread Length | McMaster | 26035A183 | $7.71 | $7.71 |
-| Tap 10-32, 7/8" Thread Length | McMaster | 2522A819 | $7.00 | $7.00 |
-| Epoxy | Amazon | n/a | $12.87 | $12.87 |
-| **Subtotal** | | | | **$554.20** |
+<table>
+  <thead><tr><th>Item</th><th>Manufacturer</th><th>Part Number</th><th>Unit Price</th><th>Total</th></tr></thead>
+  <tbody>
+    <tr><td>Springs</td><td>Century Spring</td><td>80632CS</td><td>$9.68</td><td>$38.72</td></tr>
+    <tr><td>Braking Pads</td><td>McMaster</td><td>6175K813</td><td>$10.34</td><td>$10.34</td></tr>
+    <tr><td>Guide Rails and Bearings</td><td>LimoBearing</td><td>MGN15H</td><td>$10.35</td><td>$41.40</td></tr>
+    <tr><td>Gussets</td><td>McMaster</td><td>5537T518</td><td>$5.09</td><td>$40.72</td></tr>
+    <tr><td>Pneumatic Actuators</td><td>McMaster</td><td>6453k112</td><td>$168.09</td><td>$336.18</td></tr>
+    <tr><td>Plate Screws</td><td>Amazon</td><td>n/a</td><td>$14.99</td><td>$14.99</td></tr>
+    <tr><td>Bearing Screws</td><td>McMaster</td><td>92467A469</td><td>$8.65</td><td>$8.65</td></tr>
+    <tr><td>Actuator Screws</td><td>McMaster</td><td>92949A151</td><td>$5.92</td><td>$5.92</td></tr>
+    <tr><td>Stock for C-bracket</td><td>McMaster</td><td>89155K11</td><td>$18.89</td><td>$18.89</td></tr>
+    <tr><td>Stock for C-bracket</td><td>McMaster</td><td>89155K113</td><td>$10.81</td><td>$10.81</td></tr>
+    <tr><td>Tap ½"-13, 1-21/32"</td><td>McMaster</td><td>26035A183</td><td>$7.71</td><td>$7.71</td></tr>
+    <tr><td>Tap 10-32, 7/8"</td><td>McMaster</td><td>2522A819</td><td>$7.00</td><td>$7.00</td></tr>
+    <tr><td>Epoxy</td><td>Amazon</td><td>n/a</td><td>$12.87</td><td>$12.87</td></tr>
+    <tr><td>Subtotal</td><td>—</td><td>—</td><td>—</td><td>$554.20</td></tr>
+  </tbody>
+</table>
 
 </div>

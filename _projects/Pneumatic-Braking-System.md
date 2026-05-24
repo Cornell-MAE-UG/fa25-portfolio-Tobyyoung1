@@ -8,41 +8,46 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 <style>
   .container { max-width: 1000px; padding: 0 1in; }
 
-  .pc { font-size: 0.97rem; line-height: 1.75; color: #333; }
-  .pc h2 { font-size: 1.5rem; margin: 2.5rem 0 0.5rem; border-bottom: 2px solid #d0d4e0; padding-bottom: 0.3rem; }
-  .pc h3 { font-size: 1.1rem; margin: 1.75rem 0 0.4rem; color: #3a3f58; }
-  .pc p  { margin: 0 0 0.9rem; }
-  .pc ul, .pc ol { margin: 0 0 0.9rem 1.25rem; }
-  .pc li { margin-bottom: 0.3rem; }
+  .pc { font-size: 1.08rem; line-height: 1.85; color: #333; }
+  .pc h2 { font-size: 1.55rem; margin: 2.5rem 0 0.6rem; border-bottom: 2px solid #d0d4e0; padding-bottom: 0.3rem; }
+  .pc h3 { font-size: 1.15rem; margin: 1.75rem 0 0.5rem; color: #3a3f58; }
+  .pc p  { margin: 0 0 1rem; }
+  .pc ul, .pc ol { margin: 0 0 1rem 1.4rem; }
+  .pc li { margin-bottom: 0.35rem; }
   .pc hr { border: none; border-top: 1px solid #e2e4ec; margin: 2rem 0; }
 
+  /* Stat bar */
   .stat-bar { display: flex; gap: 12px; margin: 1.25rem 0 1.75rem; flex-wrap: wrap; }
-  .stat-box { flex: 1; min-width: 130px; background: #eceef5; border-radius: 8px; padding: 0.7rem 1rem; }
-  .stat-box .val { font-size: 1.4rem; font-weight: 700; color: #3a3f58; line-height: 1; }
+  .stat-box { flex: 1; min-width: 130px; background: #eceef5; border-radius: 8px; padding: 0.75rem 1rem; }
+  .stat-box .val { font-size: 1.35rem; font-weight: 700; color: #3a3f58; line-height: 1; }
   .stat-box .lbl { font-size: 0.72rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-  .img-right { float: right; width: 38%; margin: 0 0 1.2rem 1.5rem; }
-  .img-left  { float: left;  width: 38%; margin: 0 1.5rem 1.2rem 0; }
-  .img-full  { display: block; width: 80%; margin: 1.25rem auto; }
-  .img-right img, .img-left img, .img-full img {
-    width: 100%; border-radius: 8px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.13);
-  }
+  /* Grid side-by-side layouts */
+  .sbs { display: grid; gap: 1.5rem; align-items: start; margin: 1rem 0 1.5rem; }
+  .sbs-il { grid-template-columns: 38% 1fr; }
+  .sbs-ir { grid-template-columns: 1fr 38%; }
+  .sbs-ir .sbs-img { grid-column: 2; grid-row: 1; }
+  .sbs-ir .sbs-body { grid-column: 1; grid-row: 1; }
+  .sbs-img img { width: 100%; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.13); display: block; }
   .img-caption { font-size: 0.75rem; color: #777; text-align: center; margin-top: 5px; font-style: italic; }
-  .clearfix::after { content: ''; display: table; clear: both; }
 
-  /* Table — alternating rows use a warm tan so they contrast against the page bg */
-  .pc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.88rem; }
-  .pc th { background: #3a3f58; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
-  .pc td { padding: 7px 12px; border-bottom: 1px solid #ccc; background: #fff; }
+  /* Full-width centered image */
+  .img-full { width: 80%; margin: 1.25rem auto; }
+  .img-full img { width: 100%; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.13); display: block; }
+
+  /* Tables */
+  .pc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.92rem; }
+  .pc th { background: #3a3f58; color: #fff; text-align: left; padding: 9px 13px; font-weight: 600; }
+  .pc td { padding: 8px 13px; border-bottom: 1px solid #ccc; background: #fff; }
   .pc tr:nth-child(even) td { background: #e8e8e8; }
   .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #d0d0d0; }
 
+  /* Assembly status */
   .status-grid { display: flex; gap: 1rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap; }
   .status-col { flex: 1; min-width: 200px; background: #eceef5; border-radius: 8px; padding: 0.9rem 1rem; }
-  .status-col h4 { margin: 0 0 0.6rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #3a3f58; }
+  .status-col h4 { margin: 0 0 0.6rem; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; color: #3a3f58; }
   .status-col ul { margin: 0; padding-left: 1.1rem; }
-  .status-col li { font-size: 0.87rem; margin-bottom: 0.3rem; }
+  .status-col li { font-size: 0.92rem; margin-bottom: 0.35rem; }
   .done li::marker { color: #3a7d44; }
   .todo li::marker { color: #c0392b; }
 </style>
@@ -68,40 +73,42 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 <h2>Frictional Braking System</h2>
 
 <h3>Design Concept</h3>
-<p>The system applies a symmetric clamping force to the I-beam flange via brake pads above and below, minimizing lateral bending on both the beam and the mount. The assembly self-aligns along the track axis to tolerate minor positional variation without compromising performance.</p>
+<p>The system applies a symmetric clamping force to the I-beam flange via brake pads above and below, minimizing lateral bending on both the beam and the mount. The assembly self-aligns along the track axis to tolerate minor positional variation without compromising performance. The core design philosophy prioritizes <strong>fail-safe operation</strong>: the system defaults to brakes engaged when unpowered.</p>
 
 <hr>
 
 <h3>C-Bracket Assembly</h3>
 
-<div class="clearfix">
-  <div class="img-right">
-    <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-2.png' | relative_url }}" alt="C-Bracket cross-section showing actuator layout">
+<div class="sbs sbs-ir">
+  <div class="sbs-img">
+    <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-2.png' | relative_url }}" alt="C-Bracket cross-section showing dual actuator layout">
     <p class="img-caption">Cross-section view — dual actuator arrangement</p>
   </div>
-
-  <p>The structural backbone is the <strong>C-bracket</strong>, machined from 6061 aluminum stock (McMaster 89155K11, 89155K113). Key features:</p>
-  <ul>
-    <li><strong>Upper plate</strong> — receives actuator load, distributes it through four guide pins to the moving brake carrier</li>
-    <li><strong>Lower plate (fixed)</strong> — houses the stationary lower brake pad, bolted rigidly to the bracket body</li>
-    <li><strong>Guide columns</strong> — four precision steel pins constrain carrier motion to the actuation axis, preventing lateral drift under load</li>
-    <li><strong>Gusset reinforcement</strong> — aluminum gussets (McMaster 5537T518) epoxied and bolted at inner corners to stiffen against the clamping bending moment</li>
-  </ul>
-  <p>Aluminum was chosen over steel for ~65% weight savings. FEA confirmed deflection at the clamping interface stays under 1.5 µm — within MGN15H rail clearance.</p>
+  <div class="sbs-body">
+    <p>The structural backbone is the <strong>C-bracket</strong>, machined from 6061 aluminum stock (McMaster 89155K11, 89155K113). Key features:</p>
+    <ul>
+      <li><strong>Upper plate</strong> — receives actuator load, distributes it through four guide pins to the moving brake carrier</li>
+      <li><strong>Lower plate (fixed)</strong> — houses the stationary lower brake pad, bolted rigidly to the bracket body</li>
+      <li><strong>Guide columns</strong> — four precision steel pins constrain carrier motion to the actuation axis, preventing lateral drift under load</li>
+      <li><strong>Gusset reinforcement</strong> — aluminum gussets (McMaster 5537T518) epoxied and bolted at inner corners to stiffen against the clamping bending moment</li>
+    </ul>
+    <p>Aluminum was chosen over steel for ~65% weight savings. FEA confirmed deflection at the clamping interface stays under 1.5 µm — within MGN15H rail clearance.</p>
+  </div>
 </div>
 
 <hr>
 
 <h3>Physical Assembly</h3>
 
-<div class="clearfix">
-  <div class="img-left">
+<div class="sbs sbs-il">
+  <div class="sbs-img">
     <img src="{{ '/assets/images/Physical-C-Bracket-Brakes.png' | relative_url }}" alt="Machined and assembled C-bracket brake unit">
     <p class="img-caption">Finished assembly — machined in-house at Cornell</p>
   </div>
-
-  <p>The machined assembly closely matches the CAD model. Visible components include the centrally mounted pneumatic actuator, lateral return springs, tapped aluminum plates, and the lower rubber brake pad (McMaster 6175K813).</p>
-  <p>All features were machined in the Cornell engineering shop using ½"-13 and 10-32 taps (McMaster 26035A183, 2522A819). Gusset interfaces were bonded with epoxy in addition to mechanical fastening.</p>
+  <div class="sbs-body">
+    <p>The machined assembly closely matches the CAD model. Visible components include the centrally mounted pneumatic actuator, lateral return springs, tapped aluminum plates, and the lower rubber brake pad (McMaster 6175K813).</p>
+    <p>All features were machined in the Cornell engineering shop using ½"-13 and 10-32 taps (McMaster 26035A183, 2522A819). Gusset interfaces were bonded with epoxy in addition to mechanical fastening to maximize joint stiffness.</p>
+  </div>
 </div>
 
 <hr>
@@ -113,22 +120,22 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 
 <h3>Pneumatic Circuit</h3>
 
-<div class="clearfix">
-  <div class="img-right">
+<div class="sbs sbs-ir">
+  <div class="sbs-img">
     <img src="{{ '/assets/images/Pneumatics-Diagram.png' | relative_url }}" alt="Physical pneumatic circuit layout with annotated components">
     <p class="img-caption">Annotated pneumatic circuit — tank, regulator, E.B.V., and cylinders</p>
   </div>
-
-  <table>
-    <thead><tr><th>Parameter</th><th>Previous Regulator</th><th>Current Regulator</th></tr></thead>
-    <tbody>
-      <tr><td>Inlet pressure</td><td>300 psi</td><td>6000 psi</td></tr>
-      <tr><td>Outlet pressure range</td><td>0–125 psi</td><td>0–400 psi</td></tr>
-      <tr><td>Braking cycles per tank</td><td>1–2</td><td>180–250</td></tr>
-    </tbody>
-  </table>
-
-  <p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
+  <div class="sbs-body">
+    <table>
+      <thead><tr><th>Parameter</th><th>Previous</th><th>Current</th></tr></thead>
+      <tbody>
+        <tr><td>Inlet pressure</td><td>300 psi</td><td>6000 psi</td></tr>
+        <tr><td>Outlet pressure range</td><td>0–125 psi</td><td>0–400 psi</td></tr>
+        <tr><td>Braking cycles per tank</td><td>1–2</td><td>180–250</td></tr>
+      </tbody>
+    </table>
+    <p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
+  </div>
 </div>
 
 <hr>
@@ -153,7 +160,7 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   </tbody>
 </table>
 
-<p>Maximum deflection occurs at the outer corners of the upper mounting plate — the furthest points from the constrained support — as expected. The clamping interface and guide pin bores remain essentially rigid. No reinforcement is required.</p>
+<p>Maximum deflection occurs at the outer corners of the upper mounting plate — furthest from the constrained support — as expected. The clamping interface and guide pin bores remain essentially rigid. No reinforcement is required.</p>
 
 <hr>
 

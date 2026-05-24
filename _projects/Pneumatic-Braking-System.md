@@ -6,10 +6,8 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 ---
 
 <style>
-  /* ── Page width ── */
   .container { max-width: 1000px; padding: 0 1in; }
 
-  /* ── Project content reset ── */
   .pc { font-size: 0.97rem; line-height: 1.75; color: #333; }
   .pc h2 { font-size: 1.5rem; margin: 2.5rem 0 0.5rem; border-bottom: 2px solid #d0d4e0; padding-bottom: 0.3rem; }
   .pc h3 { font-size: 1.1rem; margin: 1.75rem 0 0.4rem; color: #3a3f58; }
@@ -18,13 +16,11 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   .pc li { margin-bottom: 0.3rem; }
   .pc hr { border: none; border-top: 1px solid #e2e4ec; margin: 2rem 0; }
 
-  /* ── Stat bar ── */
   .stat-bar { display: flex; gap: 12px; margin: 1.25rem 0 1.75rem; flex-wrap: wrap; }
-  .stat-box { flex: 1; min-width: 130px; background: #f0f2f8; border-radius: 8px; padding: 0.7rem 1rem; }
+  .stat-box { flex: 1; min-width: 130px; background: #eceef5; border-radius: 8px; padding: 0.7rem 1rem; }
   .stat-box .val { font-size: 1.4rem; font-weight: 700; color: #3a3f58; line-height: 1; }
   .stat-box .lbl { font-size: 0.72rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
 
-  /* ── Image layouts ── */
   .img-right { float: right; width: 42%; margin: 0 0 1.2rem 1.5rem; }
   .img-left  { float: left;  width: 42%; margin: 0 1.5rem 1.2rem 0; }
   .img-full  { display: block; width: 80%; margin: 1.25rem auto; }
@@ -32,37 +28,28 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
     width: 100%; border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.13);
   }
-  .img-caption {
-    font-size: 0.75rem; color: #777; text-align: center;
-    margin-top: 5px; font-style: italic;
-  }
+  .img-caption { font-size: 0.75rem; color: #777; text-align: center; margin-top: 5px; font-style: italic; }
   .clearfix::after { content: ''; display: table; clear: both; }
 
-  /* ── Tables ── */
+  /* Table — alternating rows use a warm tan so they contrast against the page bg */
   .pc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.88rem; }
   .pc th { background: #3a3f58; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
-  .pc td { padding: 7px 12px; border-bottom: 1px solid #e4e6ee; }
-  .pc tr:nth-child(even) td { background: #f7f8fb; }
-  .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #eef0f6; }
+  .pc td { padding: 7px 12px; border-bottom: 1px solid #dde0ea; }
+  .pc tr:nth-child(even) td { background: #dfe3f0; }
+  .pc tr:last-child td { border-bottom: none; font-weight: 600; background: #c8cde3; }
 
-  /* ── Status pills ── */
   .status-grid { display: flex; gap: 1rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap; }
-  .status-col { flex: 1; min-width: 200px; background: #f7f8fb; border-radius: 8px; padding: 0.9rem 1rem; }
+  .status-col { flex: 1; min-width: 200px; background: #eceef5; border-radius: 8px; padding: 0.9rem 1rem; }
   .status-col h4 { margin: 0 0 0.6rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #3a3f58; }
   .status-col ul { margin: 0; padding-left: 1.1rem; }
   .status-col li { font-size: 0.87rem; margin-bottom: 0.3rem; }
-  .done li::marker  { color: #3a7d44; }
-  .todo li::marker  { color: #c0392b; }
+  .done li::marker { color: #3a7d44; }
+  .todo li::marker { color: #c0392b; }
 </style>
 
 <div class="pc">
 
 <h2>Overview</h2>
-
-<div class="img-right">
-  <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-1.png' | relative_url }}" alt="C-Bracket isometric CAD render">
-  <p class="img-caption">C-Bracket assembly — SolidWorks CAD render</p>
-</div>
 
 <p>Cornell Hyperloop's braking system consists of two complementary subsystems: frictional braking and magnetic braking. The <strong>frictional braking system is the primary mechanism</strong> — it brings the pod to a complete stop after the magnetic brakes have handled initial deceleration at high speed.</p>
 
@@ -76,7 +63,6 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   <div class="stat-box"><div class="val">$554</div><div class="lbl">BOM total</div></div>
 </div>
 
-<div class="clearfix"></div>
 <hr>
 
 <h2>Frictional Braking System</h2>
@@ -89,7 +75,7 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 <h3>C-Bracket Assembly</h3>
 
 <div class="clearfix">
-  <div class="img-left">
+  <div class="img-right">
     <img src="{{ '/assets/images/C-Bracket-Brakes-CAD-2.png' | relative_url }}" alt="C-Bracket cross-section showing actuator layout">
     <p class="img-caption">Cross-section view — dual actuator arrangement</p>
   </div>
@@ -109,7 +95,7 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 <h3>Physical Assembly</h3>
 
 <div class="clearfix">
-  <div class="img-right">
+  <div class="img-left">
     <img src="{{ '/assets/images/Physical-C-Bracket-Brakes.png' | relative_url }}" alt="Machined and assembled C-bracket brake unit">
     <p class="img-caption">Finished assembly — machined in-house at Cornell</p>
   </div>
@@ -136,7 +122,7 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
   </tbody>
 </table>
 
-<p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — this is the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
+<p>Circuit flow: tank → manual shutoff valve → ¼in female T → pressure regulator → electric ball valve (E.B.V.) → 2-way air split → two pneumatic cylinders, with a pressure gauge teed downstream of the regulator. The E.B.V. vents to atmosphere when de-energized, spring-engaging the brakes — the dead-man switch behavior. Remaining procurement: 1× ⅛in NPT brass barb, 1× ⅛" NPT extruded tee fitting.</p>
 
 <hr>
 

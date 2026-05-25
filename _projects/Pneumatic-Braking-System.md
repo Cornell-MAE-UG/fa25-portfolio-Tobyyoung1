@@ -164,31 +164,6 @@ image: assets/images/C-Bracket-Brakes-CAD-1.png
 
 <hr>
 
-<h2>Assembly Status</h2>
-
-<div class="status-grid">
-  <div class="status-col done">
-    <h4>✓ Completed</h4>
-    <ul>
-      <li>All aluminum components machined</li>
-      <li>Pneumatic actuators installed</li>
-      <li>C-bracket assembly nearly complete</li>
-      <li>FEA simulation validated</li>
-    </ul>
-  </div>
-  <div class="status-col todo">
-    <h4>⧖ Remaining</h4>
-    <ul>
-      <li>Linear guide rails — awaiting delivery</li>
-      <li>Install return spring</li>
-      <li>Connect to pneumatic circuit</li>
-      <li>Integrated pressure test</li>
-    </ul>
-  </div>
-</div>
-
-<hr>
-
 <h2>Bill of Materials</h2>
 
 <table>

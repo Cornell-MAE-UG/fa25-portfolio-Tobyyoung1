@@ -947,3 +947,21 @@ if (explodeSlider) {
   });
 }
 </script>
+<script>
+function ctToggle(btn, panelId) {
+  var panel = document.getElementById(panelId);
+  var isOpen = btn.getAttribute('aria-expanded') === 'true';
+
+  document.querySelectorAll('.ct-accordion-trigger').forEach(function(b) {
+    b.setAttribute('aria-expanded', 'false');
+  });
+  document.querySelectorAll('.ct-accordion-panel').forEach(function(p) {
+    p.classList.remove('is-open');
+  });
+
+  if (!isOpen) {
+    btn.setAttribute('aria-expanded', 'true');
+    panel.classList.add('is-open');
+  }
+}
+</script>

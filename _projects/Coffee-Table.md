@@ -897,11 +897,12 @@ function applyExplode(factor) {
 }
 // Shift + scroll controls explode; plain scroll still zooms via OrbitControls
 wrap.addEventListener('wheel', (e) => {
-  if (!e.shiftKey) return; // let OrbitControls handle plain scroll (zoom)
+  if (!e.shiftKey) return;
   e.preventDefault();
 
-  const step = 0.0015; // sensitivity — tune to taste
-  explodeFactor = THREE.MathUtils.clamp(explodeFactor + e.deltaY * step, 0, 1);
+  const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+  const step = 0.0015;
+  explodeFactor = THREE.MathUtils.clamp(explodeFactor + delta * step, 0, 1);
 
   applyExplode(explodeFactor);
   if (explodeSlider) explodeSlider.value = Math.round(explodeFactor * 100);

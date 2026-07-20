@@ -1,3 +1,10 @@
+---
+layout: project
+title: Coffee Table
+description: Handmade furniture — designed in Fusion 360, built in pine
+image: /assets/images/Coffee-Table-Finished.jpeg
+---
+
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

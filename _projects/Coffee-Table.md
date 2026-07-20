@@ -467,8 +467,15 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <h2 class="ct-section-title">Interactive assembly viewer</h2>
 
         <div class="ct-viewer-controls">
-          <button class="ct-viewer-btn" id="ct-btn-rotate" onclick="ctToggleRotate()">Pause rotation</button>
-          <button class="ct-viewer-btn" onclick="ctResetCamera()">Reset view</button>
+            <button class="ct-viewer-btn" id="ct-btn-rotate" onclick="ctToggleRotate()">Pause rotation</button>
+            <button class="ct-viewer-btn" onclick="ctResetCamera()">Reset view</button>
+        </div>
+
+        <div style="margin-bottom: 0.5rem;">
+            <label for="ct-explode-slider" class="ct-viewer-hint" style="display:block; margin-bottom:4px;">
+            Exploded view
+            </label>
+            <input type="range" id="ct-explode-slider" min="0" max="100" value="0" style="width:100%; accent-color:#4a6741;">
         </div>
 
         <div class="ct-viewer-wrap">
@@ -478,7 +485,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
             <span>Loading model…</span>
           </div>
         </div>
-        <p class="ct-viewer-hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Right-drag to pan</p>
+        <p class="ct-viewer-hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Shift+Scroll to explode &nbsp;·&nbsp; Right-drag to pan</p>
 
       </div>
     </div>
@@ -674,9 +681,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const canvas   = document.getElementById('ct-canvas');
-const loading  = document.getElementById('ct-loading');
+const canvas    = document.getElementById('ct-canvas');
+const loading   = document.getElementById('ct-loading');
 const btnRotate = document.getElementById('ct-btn-rotate');
+const explodeSlider = document.getElementById('ct-explode-slider');
 
 if (!canvas) { console.warn('ct-canvas not found'); }
 
@@ -749,6 +757,11 @@ let model = null;
 let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();
 
+// --- Explode state ---
+const explodeData = [];   // { mesh, originalWorldPos, direction }
+let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
+const EXPLODE_DISTANCE = 0.9; // tune this to taste once the model loads
+
 loader.load(
   modelPath,
   (gltf) => {
@@ -780,13 +793,80 @@ loader.load(
     });
 
     scene.add(model);
+    model.updateMatrixWorld(true);
+
+    // --- Build explode groups ---
+    // Recompute the model's center in world space (post scale/position fix)
+    const modelBox = new THREE.Box3().setFromObject(model);
+    const modelCenter = modelBox.getCenter(new THREE.Vector3());
+
+    const legMeshes = [];
+    const topMeshes = [];
+
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      if (child.name === 'Tabletop') {
+        topMeshes.push(child);
+      } else if (child.name && child.name.startsWith('Leg Design')) {
+        legMeshes.push(child);
+      }
+    });
+
+    // Bucket leg segments into 4 quadrants based on world position
+    const quadrants = [[], [], [], []]; // ++, +-, -+, --  (x,z signs)
+    legMeshes.forEach((mesh) => {
+      const wp = new THREE.Vector3();
+      mesh.getWorldPosition(wp);
+      const dx = wp.x - modelCenter.x;
+      const dz = wp.z - modelCenter.z;
+      let idx;
+      if (dx >= 0 && dz >= 0) idx = 0;
+      else if (dx >= 0 && dz < 0) idx = 1;
+      else if (dx < 0 && dz >= 0) idx = 2;
+      else idx = 3;
+      quadrants[idx].push(mesh);
+    });
+
+    function quadrantDirection(meshes) {
+      if (meshes.length === 0) return new THREE.Vector3(1, 0, 0);
+      const centroid = new THREE.Vector3();
+      meshes.forEach((m) => {
+        const wp = new THREE.Vector3();
+        m.getWorldPosition(wp);
+        centroid.add(wp);
+      });
+      centroid.divideScalar(meshes.length);
+      const dir = centroid.sub(modelCenter);
+      dir.y = 0; // push legs outward, mostly horizontal
+      if (dir.lengthSq() < 1e-8) return new THREE.Vector3(1, 0, 0);
+      return dir.normalize();
+    }
+
+    quadrants.forEach((group) => {
+      if (group.length === 0) return;
+      const dir = quadrantDirection(group).add(new THREE.Vector3(0, -0.2, 0)).normalize();
+      group.forEach((mesh) => {
+        const worldPos = new THREE.Vector3();
+        mesh.getWorldPosition(worldPos);
+        explodeData.push({ mesh, originalWorldPos: worldPos, direction: dir.clone() });
+      });
+    });
+
+    // Tabletop lifts straight up
+    topMeshes.forEach((mesh) => {
+      const worldPos = new THREE.Vector3();
+      mesh.getWorldPosition(worldPos);
+      explodeData.push({
+        mesh,
+        originalWorldPos: worldPos,
+        direction: new THREE.Vector3(0, 1, 0),
+      });
+    });
 
     // Update camera target to model center
-    const box3 = new THREE.Box3().setFromObject(model);
-    const mid = box3.getCenter(new THREE.Vector3());
-    controls.target.copy(mid);
-    defaultTarget = mid.clone();
-    camera.position.set(mid.x + 2.2, mid.y + 1.4, mid.z + 2.8);
+    controls.target.copy(modelCenter);
+    defaultTarget = modelCenter.clone();
+    camera.position.set(modelCenter.x + 2.2, modelCenter.y + 1.4, modelCenter.z + 2.8);
     defaultCamPos = camera.position.clone();
     controls.update();
 
@@ -805,6 +885,28 @@ loader.load(
   }
 );
 
+function applyExplode(factor) {
+  explodeData.forEach(({ mesh, originalWorldPos, direction }) => {
+    const targetWorld = originalWorldPos.clone().add(
+      direction.clone().multiplyScalar(factor * EXPLODE_DISTANCE)
+    );
+    const parent = mesh.parent;
+    const targetLocal = parent ? parent.worldToLocal(targetWorld.clone()) : targetWorld;
+    mesh.position.copy(targetLocal);
+  });
+}
+// Shift + scroll controls explode; plain scroll still zooms via OrbitControls
+wrap.addEventListener('wheel', (e) => {
+  if (!e.shiftKey) return; // let OrbitControls handle plain scroll (zoom)
+  e.preventDefault();
+
+  const step = 0.0015; // sensitivity — tune to taste
+  explodeFactor = THREE.MathUtils.clamp(explodeFactor + e.deltaY * step, 0, 1);
+
+  applyExplode(explodeFactor);
+  if (explodeSlider) explodeSlider.value = Math.round(explodeFactor * 100);
+}, { passive: false });
+
 // Resize
 const resizeObserver = new ResizeObserver(() => {
   const w = wrap.clientWidth;
@@ -816,9 +918,8 @@ const resizeObserver = new ResizeObserver(() => {
 resizeObserver.observe(wrap);
 
 // Render loop
-let rafId;
 function animate() {
-  rafId = requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
   if (autoRotate && model) {
     model.rotation.y += 0.004;
   }
@@ -838,23 +939,11 @@ window.ctResetCamera = function() {
   controls.target.copy(defaultTarget);
   controls.update();
 };
-</script>
 
-<script>
-function ctToggle(btn, panelId) {
-  var panel = document.getElementById(panelId);
-  var isOpen = btn.getAttribute('aria-expanded') === 'true';
-
-  document.querySelectorAll('.ct-accordion-trigger').forEach(function(b) {
-    b.setAttribute('aria-expanded', 'false');
+if (explodeSlider) {
+  explodeSlider.addEventListener('input', (e) => {
+    explodeFactor = Number(e.target.value) / 100;
+    applyExplode(explodeFactor);
   });
-  document.querySelectorAll('.ct-accordion-panel').forEach(function(p) {
-    p.classList.remove('is-open');
-  });
-
-  if (!isOpen) {
-    btn.setAttribute('aria-expanded', 'true');
-    panel.classList.add('is-open');
-  }
 }
 </script>

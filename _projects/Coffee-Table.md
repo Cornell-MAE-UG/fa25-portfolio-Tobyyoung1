@@ -804,12 +804,13 @@ loader.load(
     const topMeshes = [];
 
     model.traverse((child) => {
-      if (!child.isMesh) return;
-      if (child.name === 'Tabletop') {
+    if (!child.isMesh) return;
+    const groupName = child.parent ? child.parent.name : '';
+    if (groupName === 'Tabletop') {
         topMeshes.push(child);
-      } else if (child.name && child.name.startsWith('Leg Design')) {
+    } else if (groupName && groupName.startsWith('Leg Design')) {
         legMeshes.push(child);
-      }
+    }
     });
 
     // Bucket leg segments into 4 quadrants based on world position

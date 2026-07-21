@@ -817,18 +817,17 @@ loader.load(
     const legMeshes = [];
     const topMeshes = [];
 
-    model.traverse((child) => {
-      if (!child.name) return;
+   model.traverse((child) => {
+      if (!child.isMesh || !child.name) return;
       if (child.name === 'Tabletop' || child.name.startsWith('Tabletop_')) {
         collectMeshes(child, topMeshes);
-      } else if (
-        child.name.startsWith('Leg_Design_1,_Segmented') ||
-        child.name.startsWith('Scrap_connector') ||
-        child.name.startsWith('91420A428')
-      ) {
-        // Scraps and screws are fastened to their leg's arches/post, so they
-        // bucket into the same quadrant-based grouping and explode outward
-        // together with the leg they belong to.
+      } else {
+        // Everything that isn't the tabletop — the middle post, both leaning
+        // arches, both scrap-connector types, and both screw types — belongs
+        // to one of the four corner legs, so it buckets into the same
+        // quadrant-based explode group and moves outward with that leg.
+        // This intentionally doesn't hardcode part names, so future renamed
+        // or added leg components keep working without further edits.
         collectMeshes(child, legMeshes);
       }
     });
@@ -890,8 +889,7 @@ loader.load(
 
     // Sanity check — legMeshes now includes leg segments + scraps + screws combined
     console.log('Top meshes found:', topMeshes.length, '/ expected 6');
-    console.log('Leg + scrap + screw meshes found:', legMeshes.length, '/ expected 888');
-
+    console.log('Leg + scrap + screw meshes found:', legMeshes.length, '/ expected 1272');
     // Update camera target to model center
     controls.target.copy(modelCenter);
     defaultTarget = modelCenter.clone();

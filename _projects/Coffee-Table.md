@@ -814,11 +814,11 @@ loader.load(
     const topMeshes = [];
 
     model.traverse((child) => {
-      if (child.name === 'Tabletop') {
+    if (child.name === 'Tabletop' || child.name.startsWith('Tabletop_')) {
         collectMeshes(child, topMeshes);
-      } else if (child.name && child.name.startsWith('Leg Design')) {
+    } else if (child.name && child.name.startsWith('Leg_Design_1,_Segmented')) {
         collectMeshes(child, legMeshes);
-      }
+    }
     });
 
     // Stable per-mesh reference point in the mesh's own LOCAL geometry space.

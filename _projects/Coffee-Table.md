@@ -762,6 +762,12 @@ const explodeData = [];   // { mesh, direction }  — direction in the mesh's ow
 let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
 const EXPLODE_DISTANCE = 0.4; // in model's native units (meters); tune to taste
 
+// Recursively collect every mesh under a given node, regardless of nesting depth
+function collectMeshes(node, out) {
+  if (node.isMesh) out.push(node);
+  node.children.forEach((c) => collectMeshes(c, out));
+}
+
 loader.load(
   modelPath,
   (gltf) => {
@@ -800,18 +806,17 @@ loader.load(
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
     // --- Build explode groups ---
-    // Names live on each mesh's PARENT node in this GLTF ("Tabletop" / "Leg Design 1, Segmented"),
-    // not on the mesh itself — so we read child.parent.name, not child.name.
+    // Rather than assuming WHERE the name lives (mesh vs. parent group — GLTFLoader can
+    // collapse single-child wrapper nodes, so this varies), search every node for a name
+    // match wherever it lands, then recursively grab all mesh descendants underneath it.
     const legMeshes = [];
     const topMeshes = [];
 
     model.traverse((child) => {
-      if (!child.isMesh) return;
-      const groupName = child.parent ? child.parent.name : '';
-      if (groupName === 'Tabletop') {
-        topMeshes.push(child);
-      } else if (groupName && groupName.startsWith('Leg Design')) {
-        legMeshes.push(child);
+      if (child.name === 'Tabletop') {
+        collectMeshes(child, topMeshes);
+      } else if (child.name && child.name.startsWith('Leg Design')) {
+        collectMeshes(child, legMeshes);
       }
     });
 
@@ -827,10 +832,12 @@ loader.load(
 
     const allMeshes = [...topMeshes, ...legMeshes];
     const overallCenter = new THREE.Vector3();
-    allMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
-    overallCenter.divideScalar(allMeshes.length);
+    if (allMeshes.length > 0) {
+      allMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
+      overallCenter.divideScalar(allMeshes.length);
+    }
 
-    // Bucket the 80 leg segments into 4 quadrants using local centroid position
+    // Bucket the leg segments into 4 quadrants using local centroid position
     const quadrants = [[], [], [], []]; // ++, +-, -+, --  (x,z signs)
     legMeshes.forEach((mesh) => {
       const c = localCentroid(mesh);
@@ -895,9 +902,7 @@ loader.load(
 );
 
 // Sets each mesh's LOCAL position directly. Every mesh in this GLTF starts at local (0,0,0),
-// so we don't need to add to an "original" position or convert through world/local space —
-// which is what caused the previous bug (skewed offsets due to the model's live rotation
-// at the moment the slider/wheel was used).
+// so we don't need to add to an "original" position or convert through world/local space.
 function applyExplode(factor) {
   explodeData.forEach(({ mesh, direction }) => {
     mesh.position.copy(direction.clone().multiplyScalar(factor * EXPLODE_DISTANCE));

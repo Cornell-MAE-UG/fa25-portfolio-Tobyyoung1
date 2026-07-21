@@ -758,15 +758,10 @@ let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();
 
 // --- Explode state ---
-const explodeData = [];   // { mesh, direction }  — direction in the mesh's own local space
+const explodeData = [];   // { mesh, direction, distance }
 let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
-const EXPLODE_DISTANCE = 0.4; // in model's native units (meters); tune to taste
-
-// Recursively collect every mesh under a given node, regardless of nesting depth
-function collectMeshes(node, out) {
-  if (node.isMesh) out.push(node);
-  node.children.forEach((c) => collectMeshes(c, out));
-}
+const EXPLODE_DISTANCE = 0.4;        // tabletop, scraps, post/arches
+const SCREW_EXPLODE_DISTANCE = 0.15; // screws travel a shorter distance
 
 loader.load(
   modelPath,
@@ -774,10 +769,8 @@ loader.load(
     model = gltf.scene;
 
     // Scale only — do NOT recenter x/z via bounding box. The model's local
-    // origin is now set to the tabletop center in Fusion, so leaving
-    // model.position.x/z at 0 keeps that origin as the rotation pivot,
-    // meaning the table spins around its true center instead of an
-    // off-axis point introduced by bounding-box recentering.
+    // origin is set to the tabletop center in Fusion, so leaving
+    // model.position.x/z at 0 keeps that origin as the rotation pivot.
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
@@ -786,55 +779,43 @@ loader.load(
     model.scale.setScalar(scale);
     model.position.set(0, 0, 0);
 
-    // Sit on ground — only the Y position changes, which doesn't affect
-    // the rotation pivot (rotation is about the Y axis).
+    // Sit on ground — only Y changes, so the rotation pivot is unaffected.
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
 
-    // Enable shadows
     model.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        if (child.material) {
-          child.material.envMapIntensity = 0.4;
-        }
+        if (child.material) child.material.envMapIntensity = 0.4;
       }
     });
 
     scene.add(model);
-    window.__ctModel = model;
     model.updateMatrixWorld(true);
-    
-    // Recompute the model's center in world space (post scale/position fix) — used only for the camera
+
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
-    // --- Build explode groups ---
-    // Rather than assuming WHERE the name lives (mesh vs. parent group — GLTFLoader can
-    // collapse single-child wrapper nodes, so this varies), search every node for a name
-    // match wherever it lands, then recursively grab all mesh descendants underneath it.
-    const legMeshes = [];
-    const topMeshes = [];
+    // --- Classify every mesh into one of four explode categories ---
+    const topMeshes = [];      // tabletop faces — rigid, straight up
+    const scrapMeshes = [];    // scrap connector blocks — out AND up
+    const screwMeshes = [];    // fasteners — slide along their own shaft axis
+    const otherLegMeshes = []; // post + arches — straight out horizontally
 
-   model.traverse((child) => {
+    model.traverse((child) => {
       if (!child.isMesh || !child.name) return;
-      if (child.name === 'Tabletop' || child.name.startsWith('Tabletop_')) {
-        collectMeshes(child, topMeshes);
+      if (child.name.startsWith('Tabletop')) {
+        topMeshes.push(child);
+      } else if (child.name.includes('Scrap')) {
+        scrapMeshes.push(child);
+      } else if (child.name.startsWith('91420A')) {
+        screwMeshes.push(child);
       } else {
-        // Everything that isn't the tabletop — the middle post, both leaning
-        // arches, both scrap-connector types, and both screw types — belongs
-        // to one of the four corner legs, so it buckets into the same
-        // quadrant-based explode group and moves outward with that leg.
-        // This intentionally doesn't hardcode part names, so future renamed
-        // or added leg components keep working without further edits.
-        collectMeshes(child, legMeshes);
+        otherLegMeshes.push(child);
       }
     });
 
-    // Stable per-mesh reference point in the mesh's own LOCAL geometry space.
-    // This is unaffected by the model's continuous auto-rotation, unlike world position,
-    // which is why explode directions must be computed this way rather than via getWorldPosition.
     function localCentroid(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const c = new THREE.Vector3();
@@ -842,16 +823,17 @@ loader.load(
       return c;
     }
 
-    const allMeshes = [...topMeshes, ...legMeshes];
+    // Center used for quadrant bucketing — everything except the tabletop,
+    // since the tabletop explodes independently (straight up).
+    const legLikeMeshes = [...scrapMeshes, ...screwMeshes, ...otherLegMeshes];
     const overallCenter = new THREE.Vector3();
-    if (allMeshes.length > 0) {
-      allMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
-      overallCenter.divideScalar(allMeshes.length);
+    if (legLikeMeshes.length > 0) {
+      legLikeMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
+      overallCenter.divideScalar(legLikeMeshes.length);
     }
 
-    // Bucket the leg segments into 4 quadrants using local centroid position
-    const quadrants = [[], [], [], []]; // ++, +-, -+, --  (x,z signs)
-    legMeshes.forEach((mesh) => {
+    const quadrants = [[], [], [], []];
+    legLikeMeshes.forEach((mesh) => {
       const c = localCentroid(mesh);
       const dx = c.x - overallCenter.x;
       const dz = c.z - overallCenter.z;
@@ -869,28 +851,62 @@ loader.load(
       meshes.forEach((m) => centroid.add(localCentroid(m)));
       centroid.divideScalar(meshes.length);
       const dir = centroid.clone().sub(overallCenter);
-      dir.y = 0; // push legs outward, horizontally
+      dir.y = 0;
       if (dir.lengthSq() < 1e-8) return new THREE.Vector3(1, 0, 0);
       return dir.normalize();
     }
 
+    // Map each mesh to its quadrant's outward direction
+    const meshQuadrantDir = new Map();
     quadrants.forEach((group) => {
-      if (group.length === 0) return;
       const dir = quadrantDirection(group);
-      group.forEach((mesh) => {
-        explodeData.push({ mesh, direction: dir.clone() });
-      });
+      group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
     });
 
-    // Tabletop lifts straight up
+    // Longest local bounding-box axis — used as a screw's shaft direction
+    function principalAxis(mesh) {
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const s = new THREE.Vector3();
+      mesh.geometry.boundingBox.getSize(s);
+      if (s.x >= s.y && s.x >= s.z) return new THREE.Vector3(1, 0, 0);
+      if (s.y >= s.x && s.y >= s.z) return new THREE.Vector3(0, 1, 0);
+      return new THREE.Vector3(0, 0, 1);
+    }
+
+    // Tabletop: rigid, straight up
     topMeshes.forEach((mesh) => {
-      explodeData.push({ mesh, direction: new THREE.Vector3(0, 1, 0) });
+      explodeData.push({ mesh, direction: new THREE.Vector3(0, 1, 0), distance: EXPLODE_DISTANCE });
     });
 
-    // Sanity check — legMeshes now includes leg segments + scraps + screws combined
-    console.log('Top meshes found:', topMeshes.length, '/ expected 6');
-    console.log('Leg + scrap + screw meshes found:', legMeshes.length, '/ expected 1272');
-    // Update camera target to model center
+    // Post + arches: straight out horizontally with their leg's quadrant
+    otherLegMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      explodeData.push({ mesh, direction: dir.clone(), distance: EXPLODE_DISTANCE });
+    });
+
+    // Scraps: out AND up — blends outward direction with vertical lift,
+    // so they stay visually connected to the pieces they bridge
+    scrapMeshes.forEach((mesh) => {
+      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
+      explodeData.push({ mesh, direction: dir, distance: EXPLODE_DISTANCE });
+    });
+
+    // Screws: slide out along their own shaft axis, oriented so they back
+    // away from the wood (same general side as their leg's outward direction)
+    screwMeshes.forEach((mesh) => {
+      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const axis = principalAxis(mesh);
+      if (axis.dot(outDir) < 0) axis.negate();
+      explodeData.push({ mesh, direction: axis, distance: SCREW_EXPLODE_DISTANCE });
+    });
+
+    // Sanity check — confirm every mesh landed in exactly one category
+    console.log('Tabletop:', topMeshes.length, '/ expected 6');
+    console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
+    console.log('Screws:', screwMeshes.length, '/ expected 1080');
+    console.log('Post + arches:', otherLegMeshes.length, '/ expected 104');
+
     controls.target.copy(modelCenter);
     defaultTarget = modelCenter.clone();
     camera.position.set(modelCenter.x + 2.2, modelCenter.y + 1.4, modelCenter.z + 2.8);
@@ -912,28 +928,22 @@ loader.load(
   }
 );
 
-// Sets each mesh's LOCAL position directly. Every mesh in this GLTF starts at local (0,0,0),
-// so we don't need to add to an "original" position or convert through world/local space.
 function applyExplode(factor) {
-  explodeData.forEach(({ mesh, direction }) => {
-    mesh.position.copy(direction.clone().multiplyScalar(factor * EXPLODE_DISTANCE));
+  explodeData.forEach(({ mesh, direction, distance }) => {
+    mesh.position.copy(direction.clone().multiplyScalar(factor * distance));
   });
 }
 
-// Shift + scroll controls explode; plain scroll still zooms via OrbitControls
 wrap.addEventListener('wheel', (e) => {
   if (!e.shiftKey) return;
   e.preventDefault();
-
   const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
   const step = 0.0015;
   explodeFactor = THREE.MathUtils.clamp(explodeFactor + delta * step, 0, 1);
-
   applyExplode(explodeFactor);
   if (explodeSlider) explodeSlider.value = Math.round(explodeFactor * 100);
 }, { passive: false });
 
-// Resize
 const resizeObserver = new ResizeObserver(() => {
   const w = wrap.clientWidth;
   const h = wrap.clientHeight;
@@ -943,7 +953,6 @@ const resizeObserver = new ResizeObserver(() => {
 });
 resizeObserver.observe(wrap);
 
-// Render loop
 function animate() {
   requestAnimationFrame(animate);
   if (autoRotate && model) {
@@ -954,7 +963,6 @@ function animate() {
 }
 animate();
 
-// Exposed controls
 window.ctToggleRotate = function() {
   autoRotate = !autoRotate;
   if (btnRotate) btnRotate.textContent = autoRotate ? 'Pause rotation' : 'Resume rotation';

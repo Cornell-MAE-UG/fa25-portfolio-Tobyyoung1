@@ -799,8 +799,9 @@ loader.load(
     });
 
     scene.add(model);
+    window.__ctModel = model;
     model.updateMatrixWorld(true);
-
+    
     // Recompute the model's center in world space (post scale/position fix) — used only for the camera
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());

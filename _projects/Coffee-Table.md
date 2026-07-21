@@ -439,8 +439,8 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <p class="ct-section-label">Concept</p>
         <h2 class="ct-section-title">Curved tapered legs, designed in Fusion 360</h2>
         <div class="ct-body">
-          <p>The defining feature of the table is its leg profile — a curved inner face with an 8" radius concave sweep, tapering from a wide foot to a narrow top. The geometry was fully modelled parametrically in Fusion 360, with engineering drawings generated directly from the CAD model to guide the physical build.</p>
-          <p>Each leg leans outward at 85° from vertical, giving the table a wide, stable stance while keeping the overall silhouette light. The top angled cut matches the tabletop apron and the foot is mitered flat to the floor.</p>
+          <p>The defining feature of the table is its leg profile — a curved inner face with an 8" radius concave sweep, tapering from a wide foot to a narrow top. Each leg is built from three separate pieces of fir rather than a single blank: a central 2×2 post, mitered at a 5° angle from corner to corner at both the top and bottom to create a diagonal tilt, flanked by two curved arches — one leaning in each direction — attached on either side to form the finished corner leg.</p>
+          <p>Each leg leans outward at 85° from vertical, giving the table a wide, stable stance while keeping the overall silhouette light. The geometry was fully modelled parametrically in Fusion 360, with engineering drawings generated directly from the CAD model to guide the physical build.</p>
         </div>
 
         <hr class="ct-divider">
@@ -581,7 +581,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
           <div class="ct-step-card">
             <div class="ct-step-num">STEP 02</div>
             <div class="ct-step-name">Taper the sides</div>
-            <div class="ct-step-desc">Circular saw at 5° tilt, both long edges. Gives the leg its 85° lean. Track keeps the cut straight.</div>
+            <div class="ct-step-desc">Mitre saw at 5° tilt, both long edges of the central post. Gives the leg its 85° lean along a diagonal.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">STEP 03</div>
@@ -591,17 +591,17 @@ image: /assets/images/Coffee-Table-Finished.jpeg
           <div class="ct-step-card">
             <div class="ct-step-num">STEP 04</div>
             <div class="ct-step-name">Top angle cut</div>
-            <div class="ct-step-desc">Mitre saw at 45°, crosscut the top face — the 135° surface that meets the apron.</div>
+            <div class="ct-step-desc">Mitre saw set to two compound angles at once — roughly 7° combined with a 5° tilt — to cut the arch's top face to the correct compound shape.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">STEP 05</div>
             <div class="ct-step-name">Foot miter</div>
-            <div class="ct-step-desc">Mitre saw at 45°, crosscut the foot so the leg sits flat on the floor despite its lean.</div>
+            <div class="ct-step-desc">Mitre saw set perpendicular to the tangent at the top of the arch, creating a flat 90° face so a second arch can connect to it seamlessly.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">STEP 06</div>
             <div class="ct-step-name">Sand and assemble</div>
-            <div class="ct-step-desc">Sand all faces 80 → 220 grit. Pocket-hole join apron to legs, attach top with screws from below.</div>
+            <div class="ct-step-desc">Sand all faces 80 → 220 grit. Rather than pocket holes, each arch was fastened to a scrap block, and the scrap block fastened to the post — joining the three leg pieces into one solid corner leg.</div>
           </div>
         </div>
 
@@ -773,17 +773,21 @@ loader.load(
   (gltf) => {
     model = gltf.scene;
 
-    // Center and scale
+    // Scale only — do NOT recenter x/z via bounding box. The model's local
+    // origin is now set to the tabletop center in Fusion, so leaving
+    // model.position.x/z at 0 keeps that origin as the rotation pivot,
+    // meaning the table spins around its true center instead of an
+    // off-axis point introduced by bounding-box recentering.
     const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     const scale = 1.8 / maxDim;
 
     model.scale.setScalar(scale);
-    model.position.sub(center.multiplyScalar(scale));
+    model.position.set(0, 0, 0);
 
-    // Sit on ground
+    // Sit on ground — only the Y position changes, which doesn't affect
+    // the rotation pivot (rotation is about the Y axis).
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
 
@@ -814,11 +818,19 @@ loader.load(
     const topMeshes = [];
 
     model.traverse((child) => {
-    if (child.name === 'Tabletop' || child.name.startsWith('Tabletop_')) {
+      if (!child.name) return;
+      if (child.name === 'Tabletop' || child.name.startsWith('Tabletop_')) {
         collectMeshes(child, topMeshes);
-    } else if (child.name && child.name.startsWith('Leg_Design_1,_Segmented')) {
+      } else if (
+        child.name.startsWith('Leg_Design_1,_Segmented') ||
+        child.name.startsWith('Scrap_connector') ||
+        child.name.startsWith('91420A428')
+      ) {
+        // Scraps and screws are fastened to their leg's arches/post, so they
+        // bucket into the same quadrant-based grouping and explode outward
+        // together with the leg they belong to.
         collectMeshes(child, legMeshes);
-    }
+      }
     });
 
     // Stable per-mesh reference point in the mesh's own LOCAL geometry space.
@@ -876,9 +888,9 @@ loader.load(
       explodeData.push({ mesh, direction: new THREE.Vector3(0, 1, 0) });
     });
 
-    // Sanity check — should read 6 and 80
+    // Sanity check — legMeshes now includes leg segments + scraps + screws combined
     console.log('Top meshes found:', topMeshes.length, '/ expected 6');
-    console.log('Leg meshes found:', legMeshes.length, '/ expected 80');
+    console.log('Leg + scrap + screw meshes found:', legMeshes.length, '/ expected 888');
 
     // Update camera target to model center
     controls.target.copy(modelCenter);

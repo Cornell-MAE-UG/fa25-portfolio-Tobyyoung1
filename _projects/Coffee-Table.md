@@ -796,6 +796,9 @@ loader.load(
     });
 
     scene.add(model);
+    model.traverse((child) => {
+      console.log(child.type, `"${child.name}"`);
+    });
     model.updateMatrixWorld(true);
 
     const modelBox = new THREE.Box3().setFromObject(model);

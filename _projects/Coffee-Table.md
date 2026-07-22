@@ -716,7 +716,6 @@ controls.maxPolarAngle = Math.PI / 2 + 0.15;
 controls.target.set(0, 0.3, 0);
 controls.update();
 
-// Lighting
 const ambient = new THREE.AmbientLight(0xfff8f0, 0.7);
 scene.add(ambient);
 
@@ -741,7 +740,6 @@ const rim = new THREE.DirectionalLight(0xfff0e0, 0.35);
 rim.position.set(0, 3, -5);
 scene.add(rim);
 
-// Ground shadow plane
 const groundGeo = new THREE.PlaneGeometry(20, 20);
 const groundMat = new THREE.ShadowMaterial({ opacity: 0.12 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -750,22 +748,33 @@ ground.position.y = -0.01;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// Load model
 const loader = new GLTFLoader();
-loader.setMeshoptDecoder(MeshoptDecoder);const modelPath = "{{ '/assets/models/Table.glb' | relative_url }}";let autoRotate = true;
+loader.setMeshoptDecoder(MeshoptDecoder);
+const modelPath = "{{ '/assets/models/Table.glb' | relative_url }}";
+let autoRotate = true;
 let model = null;
 let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();
 
-// --- Explode state ---
-const explodeData = [];   // { mesh, offset } — offset is a fully combined displacement vector
-let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
-const EXPLODE_DISTANCE = 0.4;
-const SEPARATION_DISTANCE = 0.4; // increased — small shifts weren't enough to clear the curved arches from each other
-const ARCH_VERTICAL_OFFSET = 0.18; // extra vertical split between the two arches, on top of the sideways push
-const SCREW_EXPLODE_DISTANCE = 0.3; // increased so screws clear surrounding parts instead of reading as clipped
+// --- Tiered explode state ---
+// Phase 1 (slider 0-50%): tabletop rises; whole legs (post + 2 arches,
+// moving together as rigid units) splay outward; the arch-to-arch-to-
+// tabletop scrap connectors + their screws slide out of their holes.
+// Phase 2 (slider 50-100%): tabletop and table-scrap connectors HOLD their
+// phase-1 position; legs continue spreading further; each arch separates
+// from its middle post; leg-internal scrap connectors + their screws
+// explode out.
+let explodeFactor = 0;
+const explodeData = []; // { mesh, base, phase1Offset, phase2Offset }
 
-// Recursively collect every mesh under a given node, regardless of nesting depth
+const EXPLODE_TOP = 0.4;
+const EXPLODE_LEG_PHASE1 = 0.22;
+const EXPLODE_LEG_PHASE2 = 0.35;
+const ARCH_SEPARATION = 0.35;
+const TABLE_SCRAP_SLIDE = 0.22;
+const LEG_SCRAP_SLIDE = 0.32;
+const SCREW_SLIDE = 0.3;
+
 function collectMeshes(node, out) {
   if (node.isMesh) out.push(node);
   node.children.forEach((c) => collectMeshes(c, out));
@@ -796,40 +805,33 @@ loader.load(
     });
 
     scene.add(model);
-    model.traverse((child) => {
-      console.log(child.type, `"${child.name}"`);
-    });
     model.updateMatrixWorld(true);
 
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
-    // Step 1: every mesh in the model, regardless of where names live
+    // --- Classify every mesh ---
     const allModelMeshes = [];
     collectMeshes(model, allModelMeshes);
 
-    // Step 2: search every node (mesh or wrapper) for descriptive names,
-    // since names often live on a parent Group rather than the mesh itself
     const topMeshes = [];
-    const scrapMeshes = [];
-    const screwAssemblies = [];
+    const tableScrapMeshes = [];   // "Arch to Arch to Table Scrap"
+    const legScrapMeshes = [];     // "Scrap connector"
     const middleMeshes = [];
     const rightLeanMeshes = [];
     const leftLeanMeshes = [];
+    const screwMeshes = [];
 
     model.traverse((child) => {
       if (!child.name) return;
       if (child.name.startsWith('Tabletop')) {
         collectMeshes(child, topMeshes);
+      } else if (child.name.includes('Table') && child.name.includes('Scrap')) {
+        collectMeshes(child, tableScrapMeshes);
       } else if (child.name.includes('Scrap')) {
-        collectMeshes(child, scrapMeshes);
+        collectMeshes(child, legScrapMeshes);
       } else if (child.name.includes('91420A')) {
-        screwAssemblies.push({
-          name: child.name,
-          parts: [child]
-        });
-
-        console.log("SCREW FOUND:", child.name);
+        collectMeshes(child, screwMeshes);
       } else if (child.name.startsWith('Middle')) {
         collectMeshes(child, middleMeshes);
       } else if (child.name.startsWith('Right')) {
@@ -839,49 +841,22 @@ loader.load(
       }
     });
 
-    const screwMeshesFlat = [];
-
-    screwAssemblies.forEach((screw) => {
-      screw.parts.forEach((part) => {
-        collectMeshes(part, screwMeshesFlat);
-      });
-    });
-
     const specialSet = new Set([
-      ...topMeshes, 
-      ...scrapMeshes,
-      ...middleMeshes,
-      ...rightLeanMeshes,
-      ...leftLeanMeshes,
-      ...screwMeshesFlat,
+      ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,
+      ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
     ]);
-
-    screwAssemblies.forEach((screw) => {
-      screw.parts.forEach((part) => {
-        const meshes = [];
-        collectMeshes(part, meshes);
-        meshes.forEach(m => specialSet.add(m));
-      });
-    });
     const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
     const tempBox = new THREE.Box3();
-
     function worldCentroid(mesh) {
-        tempBox.setFromObject(mesh);
-
-        const c = new THREE.Vector3();
-        tempBox.getCenter(c);
-
-        return c;
+      tempBox.setFromObject(mesh);
+      const c = new THREE.Vector3();
+      tempBox.getCenter(c);
+      return c;
     }
 
     const legLikeMeshes = [
-      ...scrapMeshes,
-      ...middleMeshes,
-      ...rightLeanMeshes,
-      ...leftLeanMeshes,
-      ...otherLegMeshes,
+      ...legScrapMeshes, ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes, ...otherLegMeshes,
     ];
     const overallCenter = new THREE.Vector3();
     if (legLikeMeshes.length > 0) {
@@ -919,9 +894,6 @@ loader.load(
       group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
     });
 
-    // Longest local bounding-box axis, rotated into the mesh's PARENT frame
-    // (the same frame mesh.position lives in) via the node's own rotation —
-    // otherwise angled screws explode along the wrong axis entirely.
     function principalAxis(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const s = new THREE.Vector3();
@@ -934,84 +906,124 @@ loader.load(
       return axis;
     }
 
-    // Tabletop: rigid, straight up
+    // Tabletop: rises in phase 1, holds in phase 2
     topMeshes.forEach((mesh) => {
-      explodeData.push({ mesh, offset: new THREE.Vector3(0, EXPLODE_DISTANCE, 0) });
+      explodeData.push({
+        mesh,
+        phase1Offset: new THREE.Vector3(0, EXPLODE_TOP, 0),
+        phase2Offset: new THREE.Vector3(0, 0, 0),
+      });
     });
 
-    // Middle post: the "spine" — straight out with the leg, no extra separation
-    // Middle post: straight out with the leg (unchanged)
+    // Table-scrap connectors: slide out of their holes in phase 1, hold in phase 2
+    tableScrapMeshes.forEach((mesh) => {
+      const c = worldCentroid(mesh);
+      const refDir = c.clone().sub(overallCenter);
+      if (refDir.lengthSq() < 1e-8) refDir.set(0, 1, 0);
+      const axis = principalAxis(mesh);
+      if (axis.dot(refDir) < 0) axis.negate();
+      explodeData.push({
+        mesh,
+        phase1Offset: axis.multiplyScalar(TABLE_SCRAP_SLIDE),
+        phase2Offset: new THREE.Vector3(0, 0, 0),
+      });
+    });
+
+    // Middle post: moves out with the leg in BOTH phases (the "spine")
     middleMeshes.forEach((mesh) => {
-    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-    explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      explodeData.push({
+        mesh,
+        phase1Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE1),
+        phase2Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE2),
+      });
     });
 
-    // Left lean: out with the post, plus sideways on the perpendicular axis
-    leftLeanMeshes.forEach((mesh) => {
-    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
-    const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
-    explodeData.push({ mesh, offset });
-    });
-
-    // Right lean: out with the post, split to the OPPOSITE side of the same axis
+    // Right lean: moves WITH the post in phase 1; in phase 2, continues out
+    // AND splits sideways away from the post
     rightLeanMeshes.forEach((mesh) => {
-    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
-    const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .sub(perp.multiplyScalar(SEPARATION_DISTANCE));   // sub instead of add, no rotation
-    explodeData.push({ mesh, offset });
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+      explodeData.push({
+        mesh,
+        phase1Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE1),
+        phase2Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE2)
+          .sub(perp.multiplyScalar(ARCH_SEPARATION)),
+      });
     });
 
-    // Safety net for any unmatched leg-adjacent mesh
+    // Left lean: mirrors right lean, opposite sideways direction
+    leftLeanMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+      explodeData.push({
+        mesh,
+        phase1Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE1),
+        phase2Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE2)
+          .add(perp.multiplyScalar(ARCH_SEPARATION)),
+      });
+    });
+
+    // Unmatched leg-adjacent part — treat like the post
     otherLegMeshes.forEach((mesh) => {
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
+      explodeData.push({
+        mesh,
+        phase1Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE1),
+        phase2Offset: dir.clone().multiplyScalar(EXPLODE_LEG_PHASE2),
+      });
     });
 
-    // Scraps: out AND up, so they stay visually connected to what they bridge
-    scrapMeshes.forEach((mesh) => {
+    // Leg-internal scrap connectors: stay put in phase 1, explode out+up in phase 2
+    legScrapMeshes.forEach((mesh) => {
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
-      explodeData.push({ mesh, offset: dir.multiplyScalar(EXPLODE_DISTANCE) });
-    });
-
-    // Screws: slide along their own shaft axis, oriented outward
-    // Screws: keep each screw assembly rigid, move all child meshes together
-    // Screws: grouped by name, move all parts together
-    screwAssemblies.forEach((screw) => {
-
-      const screwMeshes = [];
-
-      screw.parts.forEach((part) => {
-        collectMeshes(part, screwMeshes);
+      explodeData.push({
+        mesh,
+        phase1Offset: new THREE.Vector3(0, 0, 0),
+        phase2Offset: dir.multiplyScalar(LEG_SCRAP_SLIDE),
       });
-
-      if (screwMeshes.length === 0) return;
-
-      const screwBox = new THREE.Box3();
-
-      screwMeshes.forEach(m => screwBox.expandByObject(m));
-
-      const size = screwBox.getSize(new THREE.Vector3());
-
-      const axis =
-        size.x > size.y && size.x > size.z
-          ? new THREE.Vector3(1,0,0)
-          : size.y > size.z
-            ? new THREE.Vector3(0,1,0)
-            : new THREE.Vector3(0,0,1);
     });
-    
+
+    // Screws: classified by whichever scrap connector each is physically
+    // closest to. Near a table-scrap connector -> phase 1 (holds in phase 2).
+    // Near a leg-internal scrap connector -> phase 2 (stays put in phase 1).
+    const scrapRefs = [
+      ...tableScrapMeshes.map((m) => ({ c: worldCentroid(m), isTableScrap: true })),
+      ...legScrapMeshes.map((m) => ({ c: worldCentroid(m), isTableScrap: false })),
+    ];
+
+    screwMeshes.forEach((mesh) => {
+      const c = worldCentroid(mesh);
+      let best = null;
+      let bestDist = Infinity;
+      scrapRefs.forEach((ref) => {
+        const d = c.distanceToSquared(ref.c);
+        if (d < bestDist) { bestDist = d; best = ref; }
+      });
+      const isTableScrew = best ? best.isTableScrap : false;
+
+      const refDir = c.clone().sub(overallCenter);
+      if (refDir.lengthSq() < 1e-8) refDir.set(1, 0, 0);
+      const axis = principalAxis(mesh);
+      if (axis.dot(refDir) < 0) axis.negate();
+      const slide = axis.multiplyScalar(SCREW_SLIDE);
+
+      explodeData.push({
+        mesh,
+        phase1Offset: isTableScrew ? slide.clone() : new THREE.Vector3(0, 0, 0),
+        phase2Offset: isTableScrew ? new THREE.Vector3(0, 0, 0) : slide.clone(),
+      });
+    });
+
     explodeData.forEach((entry) => {
-    entry.base = entry.mesh.position.clone();
+      entry.base = entry.mesh.position.clone();
     });
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
-    console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
-    console.log('Screw nodes:', screwAssemblies.map(s => s.name));
-    console.log('Screw count:', screwAssemblies.length);
+    console.log('Table-scrap connectors:', tableScrapMeshes.length, '/ expected 24');
+    console.log('Leg-scrap connectors:', legScrapMeshes.length, '/ expected 64');
+    console.log('Screws:', screwMeshes.length, '/ expected 1080');
     console.log('Middle post:', middleMeshes.length, '/ expected 40');
     console.log('Right lean:', rightLeanMeshes.length, '/ expected 32');
     console.log('Left lean:', leftLeanMeshes.length, '/ expected 32');
@@ -1039,13 +1051,13 @@ loader.load(
 );
 
 function applyExplode(factor) {
-
-    explodeData.forEach(({mesh, base, offset}) => {
-
-        mesh.position.copy(base).addScaledVector(offset, factor);
-
-    });
-
+  const p1 = THREE.MathUtils.clamp(factor / 0.5, 0, 1);
+  const p2 = THREE.MathUtils.clamp((factor - 0.5) / 0.5, 0, 1);
+  explodeData.forEach(({ mesh, base, phase1Offset, phase2Offset }) => {
+    mesh.position.copy(base)
+      .addScaledVector(phase1Offset, p1)
+      .addScaledVector(phase2Offset, p2);
+  });
 }
 
 wrap.addEventListener('wheel', (e) => {

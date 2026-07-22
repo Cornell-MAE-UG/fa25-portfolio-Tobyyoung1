@@ -680,6 +680,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const canvas    = document.getElementById('ct-canvas');
 const loading   = document.getElementById('ct-loading');
@@ -751,7 +752,7 @@ scene.add(ground);
 
 // Load model
 const loader = new GLTFLoader();
-const modelPath = "{{ '/assets/models/Table.glb' | relative_url }}";let autoRotate = true;
+loader.setMeshoptDecoder(MeshoptDecoder);const modelPath = "{{ '/assets/models/Table.glb' | relative_url }}";let autoRotate = true;
 let model = null;
 let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();

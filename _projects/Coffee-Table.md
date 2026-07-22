@@ -823,8 +823,13 @@ loader.load(
         collectMeshes(child, topMeshes);
       } else if (child.name.includes('Scrap')) {
         collectMeshes(child, scrapMeshes);
-      } else if (child.name.startsWith('91420A')) {
-        console.log("SCREW:", child.name);
+      } else if (child.name.includes('91420A')) {
+        screwAssemblies.push({
+          name: child.name,
+          parts: [child]
+        });
+
+        console.log("SCREW FOUND:", child.name);
       } else if (child.name.startsWith('Middle')) {
         collectMeshes(child, middleMeshes);
       } else if (child.name.startsWith('Right')) {
@@ -834,14 +839,30 @@ loader.load(
       }
     });
 
-    // Step 3: anything left over (safety net for unmatched future part names)
+    const screwMeshesFlat = [];
+
+    screwAssemblies.forEach((screw) => {
+      screw.parts.forEach((part) => {
+        collectMeshes(part, screwMeshesFlat);
+      });
+    });
+
     const specialSet = new Set([
       ...topMeshes, 
       ...scrapMeshes,
       ...middleMeshes,
       ...rightLeanMeshes,
       ...leftLeanMeshes,
+      ...screwMeshesFlat,
     ]);
+
+    screwAssemblies.forEach((screw) => {
+      screw.parts.forEach((part) => {
+        const meshes = [];
+        collectMeshes(part, meshes);
+        meshes.forEach(m => specialSet.add(m));
+      });
+    });
     const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
     const tempBox = new THREE.Box3();
@@ -958,24 +979,29 @@ loader.load(
 
     // Screws: slide along their own shaft axis, oriented outward
     // Screws: keep each screw assembly rigid, move all child meshes together
+    // Screws: grouped by name, move all parts together
     screwAssemblies.forEach((screw) => {
 
-      const axis = new THREE.Vector3(1,0,0);
+      const screwMeshes = [];
 
-      if (screw.children.length > 0) {
-        const firstMesh = [];
-        collectMeshes(screw, firstMesh);
-
-        if (firstMesh.length > 0) {
-          axis.copy(principalAxis(firstMesh[0]));
-        }
-      }
-
-      explodeData.push({
-        mesh: screw,
-        offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE)
+      screw.parts.forEach((part) => {
+        collectMeshes(part, screwMeshes);
       });
 
+      if (screwMeshes.length === 0) return;
+
+      const screwBox = new THREE.Box3();
+
+      screwMeshes.forEach(m => screwBox.expandByObject(m));
+
+      const size = screwBox.getSize(new THREE.Vector3());
+
+      const axis =
+        size.x > size.y && size.x > size.z
+          ? new THREE.Vector3(1,0,0)
+          : size.y > size.z
+            ? new THREE.Vector3(0,1,0)
+            : new THREE.Vector3(0,0,1);
     });
     
     explodeData.forEach((entry) => {

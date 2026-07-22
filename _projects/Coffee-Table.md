@@ -863,7 +863,44 @@ loader.load(
       tempBox.getCenter(c);
       return c;
     }
+    // add right after quadrants / meshQuadrantDir are built, before the
+    // "Tabletop:" explodeData.push block
 
+    function groupCentroid(meshes) {
+      if (meshes.length === 0) return null;
+      const c = new THREE.Vector3();
+      meshes.forEach((m) => c.add(worldCentroid(m)));
+      return c.divideScalar(meshes.length);
+    }
+
+    quadrants.forEach((group) => {
+      const middleGroup = group.filter((m) => middleMeshes.includes(m));
+      const rightGroup  = group.filter((m) => rightLeanMeshes.includes(m));
+      const leftGroup   = group.filter((m) => leftLeanMeshes.includes(m));
+
+      const middleC = groupCentroid(middleGroup);
+      if (!middleC) return; // no middle post found for this leg, skip
+
+      if (rightGroup.length) {
+        const dir = groupCentroid(rightGroup).sub(middleC);
+        if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
+        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        rightGroup.forEach((mesh) => {
+          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+        });
+      }
+
+      if (leftGroup.length) {
+        const dir = groupCentroid(leftGroup).sub(middleC);
+        if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
+        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        leftGroup.forEach((mesh) => {
+          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+        });
+      }
+
+      // middleGroup gets no entry — it stays as the anchor the arches pull away from
+    });
     const legLikeMeshes = [
       ...legScrapMeshes, ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes, ...otherLegMeshes,
     ];
@@ -964,10 +1001,18 @@ loader.load(
       const scale = best && best.isTableScrap ? TABLE_SCREW_FOLLOW_SCALE : LEG_SCREW_FOLLOW_SCALE;
       const p1Offset = best ? best.phase1Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
       const p2Offset = best ? best.phase2Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
-      explodeData.push({ mesh, phase1Offset: p1Offset, phase2Offset: p2Offset });
-    });
-    explodeData.forEach((entry) => {
-      entry.base = entry.mesh.position.clone();
+
+      const entry = { mesh, phase1Offset: p1Offset, phase2Offset: p2Offset };
+
+      if (best && best.isTableScrap) {
+        let axis = principalAxis(mesh);
+        if (axis.y < 0) axis.negate(); // keep pull-out direction pointing "up/out"
+        entry.extraOffset = axis.multiplyScalar(TABLE_SCREW_PULLOUT);
+        entry.extraT0 = PHASE1_END * 0.55; // starts once the connector is mostly risen
+        entry.extraT1 = PHASE1_END;        // finishes exactly when the connector settles
+      }
+
+      explodeData.push(entry);
     });
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
@@ -1000,13 +1045,21 @@ loader.load(
   }
 );
 
+// add near the other constants
+const TABLE_SCREW_PULLOUT = 0.14; // extra distance to clear the hole, along screw axis
+
+// in applyExplode(), after the existing phase1/phase2 blend:
 function applyExplode(factor) {
   const p1 = smoothstep(0, PHASE1_END, factor);
   const p2 = smoothstep(PHASE2_START, 1, factor);
-  explodeData.forEach(({ mesh, base, phase1Offset, phase2Offset }) => {
+  explodeData.forEach(({ mesh, base, phase1Offset, phase2Offset, extraOffset, extraT0, extraT1 }) => {
     mesh.position.copy(base)
       .addScaledVector(phase1Offset, p1)
       .addScaledVector(phase2Offset, p2);
+    if (extraOffset) {
+      const pExtra = smoothstep(extraT0, extraT1, factor);
+      mesh.position.addScaledVector(extraOffset, pExtra);
+    }
   });
 }
 

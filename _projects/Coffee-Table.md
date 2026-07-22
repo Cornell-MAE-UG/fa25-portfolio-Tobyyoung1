@@ -751,8 +751,7 @@ scene.add(ground);
 
 // Load model
 const loader = new GLTFLoader();
-const modelPath = "{{ '/assets/models/Table (Assembly).gltf' | relative_url }}";
-let autoRotate = true;
+const modelPath = "{{ '/assets/models/Table.glb' | relative_url }}";let autoRotate = true;
 let model = null;
 let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();

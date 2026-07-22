@@ -812,7 +812,7 @@ loader.load(
     // since names often live on a parent Group rather than the mesh itself
     const topMeshes = [];
     const scrapMeshes = [];
-    const screwMeshes = [];
+    const screwAssemblies = [];
     const middleMeshes = [];
     const rightLeanMeshes = [];
     const leftLeanMeshes = [];
@@ -824,7 +824,7 @@ loader.load(
       } else if (child.name.includes('Scrap')) {
         collectMeshes(child, scrapMeshes);
       } else if (child.name.startsWith('91420A')) {
-        collectMeshes(child, screwMeshes);
+        screwAssemblies.push(child);
       } else if (child.name.startsWith('Middle')) {
         collectMeshes(child, middleMeshes);
       } else if (child.name.startsWith('Right')) {
@@ -952,11 +952,20 @@ loader.load(
     });
 
     // Screws: slide along their own shaft axis, oriented outward
-    screwMeshes.forEach((mesh) => {
-      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const axis = principalAxis(mesh);
-      if (axis.dot(outDir) < 0) axis.negate();
-      explodeData.push({ mesh, offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE) });
+    screwAssemblies.forEach((screw) => {
+
+      const screwMeshes = [];
+      collectMeshes(screw, screwMeshes);
+
+      const referenceMesh = screwMeshes[0];
+
+      const axis = principalAxis(referenceMesh);
+
+      explodeData.push({
+        mesh: screw,
+        offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE)
+      });
+
     });
     
     explodeData.forEach((entry) => {
@@ -965,7 +974,7 @@ loader.load(
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
-    console.log('Screws:', screwMeshes.length, '/ expected 1080');
+    console.log('Screws:', screwAssemblies.length, '/ expected ~37');
     console.log('Middle post:', middleMeshes.length, '/ expected 40');
     console.log('Right lean:', rightLeanMeshes.length, '/ expected 32');
     console.log('Left lean:', leftLeanMeshes.length, '/ expected 32');

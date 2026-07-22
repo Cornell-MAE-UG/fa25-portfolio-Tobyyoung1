@@ -761,7 +761,7 @@ let defaultTarget = controls.target.clone();
 const explodeData = [];   // { mesh, offset } — offset is a fully combined displacement vector
 let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
 const EXPLODE_DISTANCE = 0.4;
-const SEPARATION_DISTANCE = 0.4; // increased — small shifts weren't enough to clear the curved arches from each other
+const SEPARATION_DISTANCE = 0.7; // increased — small shifts weren't enough to clear the curved arches from each other
 const ARCH_VERTICAL_OFFSET = 0.18; // extra vertical split between the two arches, on top of the sideways push
 const SCREW_EXPLODE_DISTANCE = 0.3; // increased so screws clear surrounding parts instead of reading as clipped
 

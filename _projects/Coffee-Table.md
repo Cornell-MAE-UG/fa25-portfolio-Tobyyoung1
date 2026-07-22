@@ -771,9 +771,10 @@ const EXPLODE_TOP = 0.4;
 const EXPLODE_LEG_PHASE1 = 0.22;
 const EXPLODE_LEG_PHASE2 = 0.35;
 const ARCH_SEPARATION = 0.35;
-const TABLE_SCRAP_HOVER = 0.2;  // fraction of the tabletop's rise — hovers between legs and tabletop
+const TABLE_SCRAP_HOVER = 0.2;
 const LEG_SCRAP_SLIDE = 0.32;
-const SCREW_FOLLOW_SCALE = 0.18; // screws barely leave their holes
+const TABLE_SCREW_FOLLOW_SCALE = 0.95; // rides almost fully with the connector's rise
+const LEG_SCREW_FOLLOW_SCALE = 0.18;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
 
@@ -924,15 +925,14 @@ loader.load(
     });
 
     // Table-scrap connectors: rise straight up in phase 1, hovering between
-    // the leg tops and the tabletop. No per-mesh axis guessing — the
-    // direction is known, so we just use it directly.
+    // the leg tops and the tabletop. Fixed direction, no per-mesh axis guessing.
     const tableScrapRefs = [];
     tableScrapMeshes.forEach((mesh) => {
       const c = worldCentroid(mesh);
       const p1Offset = new THREE.Vector3(0, EXPLODE_TOP * TABLE_SCRAP_HOVER, 0);
       const p2Offset = new THREE.Vector3(0, 0, 0);
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-      tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset });
+      tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: true });
     });
 
     // Leg-internal scrap connectors: stay put in phase 1, explode out+up in phase 2
@@ -944,13 +944,13 @@ loader.load(
       const p1Offset = new THREE.Vector3(0, 0, 0);
       const p2Offset = dir.multiplyScalar(LEG_SCRAP_SLIDE);
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-      legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset });
+      legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: false });
     });
 
-    // Screws: no independent direction calculation. Each screw just inherits
-    // the offset of whichever scrap connector it's physically closest to,
-    // scaled down slightly so it reads as nested near the connector rather
-    // than drifting off with its own (unreliable) computed direction.
+    // Screws inherit their nearest connector's offset. Table-top screws ride
+    // almost fully with the connector's rise (they should stay visually
+    // seated in the wood as it lifts, not get left behind). Leg-internal
+    // screws only peek partway out of their holes.
     const scrapRefs = [...tableScrapRefs, ...legScrapRefs];
 
     screwMeshes.forEach((mesh) => {
@@ -961,11 +961,11 @@ loader.load(
         const d = c.distanceToSquared(ref.c);
         if (d < bestDist) { bestDist = d; best = ref; }
       });
-      const p1Offset = best ? best.phase1Offset.clone().multiplyScalar(SCREW_FOLLOW_SCALE) : new THREE.Vector3();
-      const p2Offset = best ? best.phase2Offset.clone().multiplyScalar(SCREW_FOLLOW_SCALE) : new THREE.Vector3();
+      const scale = best && best.isTableScrap ? TABLE_SCREW_FOLLOW_SCALE : LEG_SCREW_FOLLOW_SCALE;
+      const p1Offset = best ? best.phase1Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
+      const p2Offset = best ? best.phase2Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
       explodeData.push({ mesh, phase1Offset: p1Offset, phase2Offset: p2Offset });
     });
-
     explodeData.forEach((entry) => {
       entry.base = entry.mesh.position.clone();
     });

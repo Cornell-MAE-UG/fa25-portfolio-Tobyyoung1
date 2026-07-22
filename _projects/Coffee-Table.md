@@ -1016,6 +1016,12 @@ loader.load(
       explodeData.push(entry);
     });
 
+    // Stamp every entry with its rest position now that ALL explodeData
+    // entries (legs, tabletop, connectors, screws) have been pushed.
+    explodeData.forEach((entry) => {
+      entry.base = entry.mesh.position.clone();
+    });
+
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Table-scrap connectors:', tableScrapMeshes.length, '/ expected 24');
     console.log('Leg-scrap connectors:', legScrapMeshes.length, '/ expected 64');

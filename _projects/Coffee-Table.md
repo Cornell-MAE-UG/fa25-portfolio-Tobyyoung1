@@ -758,19 +758,23 @@ let defaultCamPos = camera.position.clone();
 let defaultTarget = controls.target.clone();
 
 // --- Explode state ---
-const explodeData = [];   // { mesh, direction, distance }
+const explodeData = [];   // { mesh, offset } — offset is a fully combined displacement vector
 let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
-const EXPLODE_DISTANCE = 0.4;        // tabletop, scraps, post/arches
-const SCREW_EXPLODE_DISTANCE = 0.15; // screws travel a shorter distance
+const EXPLODE_DISTANCE = 0.4;
+const SEPARATION_DISTANCE = 0.12; // extra sideways push separating the two arches from the post
+const SCREW_EXPLODE_DISTANCE = 0.15;
+
+// Recursively collect every mesh under a given node, regardless of nesting depth
+function collectMeshes(node, out) {
+  if (node.isMesh) out.push(node);
+  node.children.forEach((c) => collectMeshes(c, out));
+}
 
 loader.load(
   modelPath,
   (gltf) => {
     model = gltf.scene;
 
-    // Scale only — do NOT recenter x/z via bounding box. The model's local
-    // origin is set to the tabletop center in Fusion, so leaving
-    // model.position.x/z at 0 keeps that origin as the rotation pivot.
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
@@ -779,7 +783,6 @@ loader.load(
     model.scale.setScalar(scale);
     model.position.set(0, 0, 0);
 
-    // Sit on ground — only Y changes, so the rotation pivot is unaffected.
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
 
@@ -797,40 +800,42 @@ loader.load(
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
-    // Recursively collect every mesh under a given node, regardless of nesting depth
-function collectMeshes(node, out) {
-  if (node.isMesh) out.push(node);
-  node.children.forEach((c) => collectMeshes(c, out));
-}
+    // Step 1: every mesh in the model, regardless of where names live
+    const allModelMeshes = [];
+    collectMeshes(model, allModelMeshes);
 
-// Step 1: collect every mesh in the whole model, no matter where names live
-const allModelMeshes = [];
-collectMeshes(model, allModelMeshes);
+    // Step 2: search every node (mesh or wrapper) for descriptive names,
+    // since names often live on a parent Group rather than the mesh itself
+    const topMeshes = [];
+    const scrapMeshes = [];
+    const screwMeshes = [];
+    const middleMeshes = [];
+    const rightLeanMeshes = [];
+    const leftLeanMeshes = [];
 
-// Step 2: search EVERY node (mesh or wrapper Group) for a name match —
-// descriptive names like "Tabletop" or "Scrap connector" often live on a
-// parent wrapper rather than the mesh itself, so we can't rely on
-// child.isMesh && child.name matching directly.
-const topMeshes = [];
-const scrapMeshes = [];
-const screwMeshes = [];
+    model.traverse((child) => {
+      if (!child.name) return;
+      if (child.name.startsWith('Tabletop')) {
+        collectMeshes(child, topMeshes);
+      } else if (child.name.includes('Scrap')) {
+        collectMeshes(child, scrapMeshes);
+      } else if (child.name.startsWith('91420A')) {
+        collectMeshes(child, screwMeshes);
+      } else if (child.name.startsWith('Middle')) {
+        collectMeshes(child, middleMeshes);
+      } else if (child.name.startsWith('Right')) {
+        collectMeshes(child, rightLeanMeshes);
+      } else if (child.name.startsWith('Left')) {
+        collectMeshes(child, leftLeanMeshes);
+      }
+    });
 
-model.traverse((child) => {
-  if (!child.name) return;
-  if (child.name.startsWith('Tabletop')) {
-    collectMeshes(child, topMeshes);
-  } else if (child.name.includes('Scrap')) {
-    collectMeshes(child, scrapMeshes);
-  } else if (child.name.startsWith('91420A')) {
-    collectMeshes(child, screwMeshes);
-  }
-});
-
-// Step 3: everything else = all meshes minus the three matched categories.
-// This sidesteps the risk of an "else" branch accidentally matching the
-// model's own root node name and vacuuming up every mesh in the scene.
-const specialSet = new Set([...topMeshes, ...scrapMeshes, ...screwMeshes]);
-const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
+    // Step 3: anything left over (safety net for unmatched future part names)
+    const specialSet = new Set([
+      ...topMeshes, ...scrapMeshes, ...screwMeshes,
+      ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
+    ]);
+    const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
     function localCentroid(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
@@ -839,9 +844,11 @@ const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
       return c;
     }
 
-    // Center used for quadrant bucketing — everything except the tabletop,
-    // since the tabletop explodes independently (straight up).
-    const legLikeMeshes = [...scrapMeshes, ...screwMeshes, ...otherLegMeshes];
+    const legLikeMeshes = [
+      ...scrapMeshes, ...screwMeshes,
+      ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
+      ...otherLegMeshes,
+    ];
     const overallCenter = new THREE.Vector3();
     if (legLikeMeshes.length > 0) {
       legLikeMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
@@ -872,56 +879,84 @@ const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
       return dir.normalize();
     }
 
-    // Map each mesh to its quadrant's outward direction
     const meshQuadrantDir = new Map();
     quadrants.forEach((group) => {
       const dir = quadrantDirection(group);
       group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
     });
 
-    // Longest local bounding-box axis — used as a screw's shaft direction
+    // Longest local bounding-box axis, rotated into the mesh's PARENT frame
+    // (the same frame mesh.position lives in) via the node's own rotation —
+    // otherwise angled screws explode along the wrong axis entirely.
     function principalAxis(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const s = new THREE.Vector3();
       mesh.geometry.boundingBox.getSize(s);
-      if (s.x >= s.y && s.x >= s.z) return new THREE.Vector3(1, 0, 0);
-      if (s.y >= s.x && s.y >= s.z) return new THREE.Vector3(0, 1, 0);
-      return new THREE.Vector3(0, 0, 1);
+      let axis;
+      if (s.x >= s.y && s.x >= s.z) axis = new THREE.Vector3(1, 0, 0);
+      else if (s.y >= s.x && s.y >= s.z) axis = new THREE.Vector3(0, 1, 0);
+      else axis = new THREE.Vector3(0, 0, 1);
+      axis.applyQuaternion(mesh.quaternion);
+      return axis;
     }
 
     // Tabletop: rigid, straight up
     topMeshes.forEach((mesh) => {
-      explodeData.push({ mesh, direction: new THREE.Vector3(0, 1, 0), distance: EXPLODE_DISTANCE });
+      explodeData.push({ mesh, offset: new THREE.Vector3(0, EXPLODE_DISTANCE, 0) });
     });
 
-    // Post + arches: straight out horizontally with their leg's quadrant
+    // Middle post: the "spine" — straight out with the leg, no extra separation
+    middleMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
+    });
+
+    // Right/Left lean arches: out with the leg, PLUS a perpendicular push so
+    // they visibly separate from the post and from each other
+    rightLeanMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
+      explodeData.push({ mesh, offset });
+    });
+
+    leftLeanMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
+      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
+      explodeData.push({ mesh, offset });
+    });
+
+    // Safety net for any unmatched leg-adjacent mesh
     otherLegMeshes.forEach((mesh) => {
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      explodeData.push({ mesh, direction: dir.clone(), distance: EXPLODE_DISTANCE });
+      explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Scraps: out AND up — blends outward direction with vertical lift,
-    // so they stay visually connected to the pieces they bridge
+    // Scraps: out AND up, so they stay visually connected to what they bridge
     scrapMeshes.forEach((mesh) => {
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
-      explodeData.push({ mesh, direction: dir, distance: EXPLODE_DISTANCE });
+      explodeData.push({ mesh, offset: dir.multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Screws: slide out along their own shaft axis, oriented so they back
-    // away from the wood (same general side as their leg's outward direction)
+    // Screws: slide along their own shaft axis, oriented outward
     screwMeshes.forEach((mesh) => {
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const axis = principalAxis(mesh);
       if (axis.dot(outDir) < 0) axis.negate();
-      explodeData.push({ mesh, direction: axis, distance: SCREW_EXPLODE_DISTANCE });
+      explodeData.push({ mesh, offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE) });
     });
 
-    // Sanity check — confirm every mesh landed in exactly one category
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
     console.log('Screws:', screwMeshes.length, '/ expected 1080');
-    console.log('Post + arches:', otherLegMeshes.length, '/ expected 104');
+    console.log('Middle post:', middleMeshes.length, '/ expected 40');
+    console.log('Right lean:', rightLeanMeshes.length, '/ expected 32');
+    console.log('Left lean:', leftLeanMeshes.length, '/ expected 32');
+    console.log('Uncategorized leg parts:', otherLegMeshes.length, '/ expected 0');
 
     controls.target.copy(modelCenter);
     defaultTarget = modelCenter.clone();
@@ -945,8 +980,8 @@ const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 );
 
 function applyExplode(factor) {
-  explodeData.forEach(({ mesh, direction, distance }) => {
-    mesh.position.copy(direction.clone().multiplyScalar(factor * distance));
+  explodeData.forEach(({ mesh, offset }) => {
+    mesh.position.copy(offset.clone().multiplyScalar(factor));
   });
 }
 

@@ -957,15 +957,26 @@ loader.load(
     });
 
     // Screws: slide along their own shaft axis, oriented outward
+    // Screws: keep each screw assembly rigid, move all child meshes together
     screwAssemblies.forEach((screw) => {
+
       const screwMeshes = [];
       collectMeshes(screw, screwMeshes);
+
+      if (screwMeshes.length === 0) return;
+
       const referenceMesh = screwMeshes[0];
       const axis = principalAxis(referenceMesh);
-      explodeData.push({
-        mesh: screw,
-        offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE)
+
+      screwMeshes.forEach((mesh) => {
+
+        explodeData.push({
+          mesh,
+          offset: axis.clone().multiplyScalar(SCREW_EXPLODE_DISTANCE)
+        });
+
       });
+
     });
     
     explodeData.forEach((entry) => {

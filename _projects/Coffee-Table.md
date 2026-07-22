@@ -836,8 +836,11 @@ loader.load(
 
     // Step 3: anything left over (safety net for unmatched future part names)
     const specialSet = new Set([
-      ...topMeshes, ...scrapMeshes, ...screwMeshes,
-      ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
+      ...topMeshes, 
+      ...scrapMeshes,
+      ...middleMeshes,
+      ...rightLeanMeshes,
+      ...leftLeanMeshes,
     ]);
     const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
@@ -853,8 +856,10 @@ loader.load(
     }
 
     const legLikeMeshes = [
-      ...scrapMeshes, ...screwMeshes,
-      ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
+      ...scrapMeshes,
+      ...middleMeshes,
+      ...rightLeanMeshes,
+      ...leftLeanMeshes,
       ...otherLegMeshes,
     ];
     const overallCenter = new THREE.Vector3();
@@ -953,19 +958,14 @@ loader.load(
 
     // Screws: slide along their own shaft axis, oriented outward
     screwAssemblies.forEach((screw) => {
-
       const screwMeshes = [];
       collectMeshes(screw, screwMeshes);
-
       const referenceMesh = screwMeshes[0];
-
       const axis = principalAxis(referenceMesh);
-
       explodeData.push({
         mesh: screw,
         offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE)
       });
-
     });
     
     explodeData.forEach((entry) => {

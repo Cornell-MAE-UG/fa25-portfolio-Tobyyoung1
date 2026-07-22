@@ -863,8 +863,6 @@ loader.load(
       tempBox.getCenter(c);
       return c;
     }
-    // add right after quadrants / meshQuadrantDir are built, before the
-    // "Tabletop:" explodeData.push block
 
     function groupCentroid(meshes) {
       if (meshes.length === 0) return null;
@@ -873,34 +871,6 @@ loader.load(
       return c.divideScalar(meshes.length);
     }
 
-    quadrants.forEach((group) => {
-      const middleGroup = group.filter((m) => middleMeshes.includes(m));
-      const rightGroup  = group.filter((m) => rightLeanMeshes.includes(m));
-      const leftGroup   = group.filter((m) => leftLeanMeshes.includes(m));
-
-      const middleC = groupCentroid(middleGroup);
-      if (!middleC) return; // no middle post found for this leg, skip
-
-      if (rightGroup.length) {
-        const dir = groupCentroid(rightGroup).sub(middleC);
-        if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
-        const offset = dir.multiplyScalar(ARCH_SEPARATION);
-        rightGroup.forEach((mesh) => {
-          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
-        });
-      }
-
-      if (leftGroup.length) {
-        const dir = groupCentroid(leftGroup).sub(middleC);
-        if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
-        const offset = dir.multiplyScalar(ARCH_SEPARATION);
-        leftGroup.forEach((mesh) => {
-          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
-        });
-      }
-
-      // middleGroup gets no entry — it stays as the anchor the arches pull away from
-    });
     const legLikeMeshes = [
       ...legScrapMeshes, ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes, ...otherLegMeshes,
     ];
@@ -938,6 +908,37 @@ loader.load(
     quadrants.forEach((group) => {
       const dir = quadrantDirection(group);
       group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
+    });
+
+    // Split each leg into its 3 parts: middle post stays put as the anchor,
+    // left/right arches separate away from it.
+    quadrants.forEach((group) => {
+      const middleGroup = group.filter((m) => middleMeshes.includes(m));
+      const rightGroup  = group.filter((m) => rightLeanMeshes.includes(m));
+      const leftGroup   = group.filter((m) => leftLeanMeshes.includes(m));
+
+      const middleC = groupCentroid(middleGroup);
+      if (!middleC) return; // no middle post found for this leg, skip
+
+      if (rightGroup.length) {
+        const dir = groupCentroid(rightGroup).sub(middleC);
+        if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
+        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        rightGroup.forEach((mesh) => {
+          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+        });
+      }
+
+      if (leftGroup.length) {
+        const dir = groupCentroid(leftGroup).sub(middleC);
+        if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
+        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        leftGroup.forEach((mesh) => {
+          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+        });
+      }
+
+      // middleGroup gets no entry — it stays as the anchor the arches pull away from
     });
 
     function principalAxis(mesh) {

@@ -823,8 +823,12 @@ loader.load(
         collectMeshes(child, topMeshes);
       } else if (child.name.includes('Scrap')) {
         collectMeshes(child, scrapMeshes);
-      } else if (child.name.startsWith('91420A')) {
-        screwAssemblies.push(child);
+      } else if (
+        child.name.startsWith('91420A') &&
+        child.parent &&
+        !child.parent.name.startsWith('91420A')
+      ) {
+          screwAssemblies.push(child);
       } else if (child.name.startsWith('Middle')) {
         collectMeshes(child, middleMeshes);
       } else if (child.name.startsWith('Right')) {
@@ -960,21 +964,20 @@ loader.load(
     // Screws: keep each screw assembly rigid, move all child meshes together
     screwAssemblies.forEach((screw) => {
 
-      const screwMeshes = [];
-      collectMeshes(screw, screwMeshes);
+      const axis = new THREE.Vector3(1,0,0);
 
-      if (screwMeshes.length === 0) return;
+      if (screw.children.length > 0) {
+        const firstMesh = [];
+        collectMeshes(screw, firstMesh);
 
-      const referenceMesh = screwMeshes[0];
-      const axis = principalAxis(referenceMesh);
+        if (firstMesh.length > 0) {
+          axis.copy(principalAxis(firstMesh[0]));
+        }
+      }
 
-      screwMeshes.forEach((mesh) => {
-
-        explodeData.push({
-          mesh,
-          offset: axis.clone().multiplyScalar(SCREW_EXPLODE_DISTANCE)
-        });
-
+      explodeData.push({
+        mesh: screw,
+        offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE)
       });
 
     });
@@ -985,7 +988,8 @@ loader.load(
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
-    console.log('Screws:', screwAssemblies.length, '/ expected ~37');
+    console.log('Screw nodes:', screwAssemblies.map(s => s.name));
+    console.log('Screw count:', screwAssemblies.length);
     console.log('Middle post:', middleMeshes.length, '/ expected 40');
     console.log('Right lean:', rightLeanMeshes.length, '/ expected 32');
     console.log('Left lean:', leftLeanMeshes.length, '/ expected 32');

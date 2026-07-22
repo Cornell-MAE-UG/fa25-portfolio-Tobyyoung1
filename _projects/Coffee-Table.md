@@ -907,30 +907,28 @@ loader.load(
     });
 
     // Middle post: the "spine" — straight out with the leg, no extra separation
+    // Middle post: straight out with the leg (unchanged)
     middleMeshes.forEach((mesh) => {
-      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
+    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+    explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Right lean: rotate the previous combined direction 90° around the
-    // vertical axis, so it travels along a genuinely different horizontal
-    // line than the left arch — not just a mirrored version of the same one.
-    rightLeanMeshes.forEach((mesh) => {
-      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
-      const combined = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
-      const rotated = new THREE.Vector3(-combined.z, 0, combined.x);
-      explodeData.push({ mesh, offset: rotated });
-    });
-
-    // Left lean: same axis as before, sign flipped to the opposite side
+    // Left lean: out with the post, plus sideways on the perpendicular axis
     leftLeanMeshes.forEach((mesh) => {
-      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
-      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+    const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
         .add(perp.multiplyScalar(SEPARATION_DISTANCE));
-      explodeData.push({ mesh, offset });
+    explodeData.push({ mesh, offset });
+    });
+
+    // Right lean: out with the post, split to the OPPOSITE side of the same axis
+    rightLeanMeshes.forEach((mesh) => {
+    const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+    const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+        .sub(perp.multiplyScalar(SEPARATION_DISTANCE));   // sub instead of add, no rotation
+    explodeData.push({ mesh, offset });
     });
 
     // Safety net for any unmatched leg-adjacent mesh

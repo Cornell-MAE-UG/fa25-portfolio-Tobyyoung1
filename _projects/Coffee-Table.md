@@ -823,12 +823,8 @@ loader.load(
         collectMeshes(child, topMeshes);
       } else if (child.name.includes('Scrap')) {
         collectMeshes(child, scrapMeshes);
-      } else if (
-        child.name.startsWith('91420A') &&
-        child.parent &&
-        !child.parent.name.startsWith('91420A')
-      ) {
-          screwAssemblies.push(child);
+      } else if (child.name.startsWith('91420A')) {
+        console.log("SCREW:", child.name);
       } else if (child.name.startsWith('Middle')) {
         collectMeshes(child, middleMeshes);
       } else if (child.name.startsWith('Right')) {

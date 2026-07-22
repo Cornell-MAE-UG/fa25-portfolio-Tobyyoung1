@@ -912,36 +912,22 @@ loader.load(
       explodeData.push({ mesh, offset: dir.clone().multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Right/Left lean arches: out with the leg, PLUS a perpendicular push so
-    // they visibly separate from the post and from each other
+    // Right lean: rotate the previous combined direction 90° around the
+    // vertical axis, so it travels along a genuinely different horizontal
+    // line than the left arch — not just a mirrored version of the same one.
     rightLeanMeshes.forEach((mesh) => {
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const perp = new THREE.Vector3(-dir.z, 0, dir.x);
-      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+      const combined = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
         .add(perp.multiplyScalar(SEPARATION_DISTANCE));
-      explodeData.push({ mesh, offset });
+      const rotated = new THREE.Vector3(-combined.z, 0, combined.x);
+      explodeData.push({ mesh, offset: rotated });
     });
 
+    // Left lean: same axis as before, sign flipped to the opposite side
     leftLeanMeshes.forEach((mesh) => {
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
-      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
-      explodeData.push({ mesh, offset });
-    });
-
-    leftLeanMeshes.forEach((mesh) => {
-      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
-      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE))
-        .add(new THREE.Vector3(0, -ARCH_VERTICAL_OFFSET, 0));
-      explodeData.push({ mesh, offset });
-    });
-
-    leftLeanMeshes.forEach((mesh) => {
-      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
       const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
         .add(perp.multiplyScalar(SEPARATION_DISTANCE));
       explodeData.push({ mesh, offset });
@@ -960,16 +946,11 @@ loader.load(
       explodeData.push({ mesh, offset: dir.multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Screws: slide along their own shaft axis. Sign is chosen using each
-    // screw's OWN position relative to the leg cluster's center (a full 3D
-    // vector), rather than the shared, purely-horizontal quadrant direction —
-    // a closer match to each screw's actual insertion angle.
+    // Screws: slide along their own shaft axis, oriented outward
     screwMeshes.forEach((mesh) => {
-      const c = localCentroid(mesh);
-      const refDir = c.clone().sub(overallCenter);
-      if (refDir.lengthSq() < 1e-8) refDir.set(1, 0, 0);
+      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const axis = principalAxis(mesh);
-      if (axis.dot(refDir) < 0) axis.negate();
+      if (axis.dot(outDir) < 0) axis.negate();
       explodeData.push({ mesh, offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE) });
     });
 

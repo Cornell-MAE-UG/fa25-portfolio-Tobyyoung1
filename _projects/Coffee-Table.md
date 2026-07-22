@@ -771,9 +771,9 @@ const EXPLODE_TOP = 0.4;
 const EXPLODE_LEG_PHASE1 = 0.22;
 const EXPLODE_LEG_PHASE2 = 0.35;
 const ARCH_SEPARATION = 0.35;
-const TABLE_SCRAP_SLIDE = 0.22;
+const TABLE_SCRAP_HOVER = 0.2;  // fraction of the tabletop's rise — hovers between legs and tabletop
 const LEG_SCRAP_SLIDE = 0.32;
-const SCREW_FOLLOW_SCALE = 0.92; // screws move with their connector, slightly scaled in
+const SCREW_FOLLOW_SCALE = 0.18; // screws barely leave their holes
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
 
@@ -812,6 +812,7 @@ loader.load(
     });
 
     scene.add(model);
+    window.__ctModel = model; // temporary debug handle — remove later
     model.updateMatrixWorld(true);
 
     const modelBox = new THREE.Box3().setFromObject(model);
@@ -922,15 +923,13 @@ loader.load(
       });
     });
 
-    // Table-scrap connectors: slide out of their holes in phase 1, hold in phase 2
+    // Table-scrap connectors: rise straight up in phase 1, hovering between
+    // the leg tops and the tabletop. No per-mesh axis guessing — the
+    // direction is known, so we just use it directly.
     const tableScrapRefs = [];
     tableScrapMeshes.forEach((mesh) => {
       const c = worldCentroid(mesh);
-      const refDir = c.clone().sub(overallCenter);
-      if (refDir.lengthSq() < 1e-8) refDir.set(0, 1, 0);
-      const axis = principalAxis(mesh);
-      if (axis.dot(refDir) < 0) axis.negate();
-      const p1Offset = axis.multiplyScalar(TABLE_SCRAP_SLIDE);
+      const p1Offset = new THREE.Vector3(0, EXPLODE_TOP * TABLE_SCRAP_HOVER, 0);
       const p2Offset = new THREE.Vector3(0, 0, 0);
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
       tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset });

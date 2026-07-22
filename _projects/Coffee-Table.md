@@ -761,8 +761,9 @@ let defaultTarget = controls.target.clone();
 const explodeData = [];   // { mesh, offset } — offset is a fully combined displacement vector
 let explodeFactor = 0;    // 0 = assembled, 1 = fully exploded
 const EXPLODE_DISTANCE = 0.4;
-const SEPARATION_DISTANCE = 0.12; // extra sideways push separating the two arches from the post
-const SCREW_EXPLODE_DISTANCE = 0.15;
+const SEPARATION_DISTANCE = 0.4; // increased — small shifts weren't enough to clear the curved arches from each other
+const ARCH_VERTICAL_OFFSET = 0.18; // extra vertical split between the two arches, on top of the sideways push
+const SCREW_EXPLODE_DISTANCE = 0.3; // increased so screws clear surrounding parts instead of reading as clipped
 
 // Recursively collect every mesh under a given node, regardless of nesting depth
 function collectMeshes(node, out) {
@@ -917,7 +918,17 @@ loader.load(
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const perp = new THREE.Vector3(-dir.z, 0, dir.x);
       const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE))
+        .add(new THREE.Vector3(0, ARCH_VERTICAL_OFFSET, 0));
+      explodeData.push({ mesh, offset });
+    });
+
+    leftLeanMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
+      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE))
+        .add(new THREE.Vector3(0, -ARCH_VERTICAL_OFFSET, 0));
       explodeData.push({ mesh, offset });
     });
 
@@ -942,11 +953,16 @@ loader.load(
       explodeData.push({ mesh, offset: dir.multiplyScalar(EXPLODE_DISTANCE) });
     });
 
-    // Screws: slide along their own shaft axis, oriented outward
+    // Screws: slide along their own shaft axis. Sign is chosen using each
+    // screw's OWN position relative to the leg cluster's center (a full 3D
+    // vector), rather than the shared, purely-horizontal quadrant direction —
+    // a closer match to each screw's actual insertion angle.
     screwMeshes.forEach((mesh) => {
-      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const c = localCentroid(mesh);
+      const refDir = c.clone().sub(overallCenter);
+      if (refDir.lengthSq() < 1e-8) refDir.set(1, 0, 0);
       const axis = principalAxis(mesh);
-      if (axis.dot(outDir) < 0) axis.negate();
+      if (axis.dot(refDir) < 0) axis.negate();
       explodeData.push({ mesh, offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE) });
     });
 

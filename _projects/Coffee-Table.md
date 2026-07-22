@@ -797,24 +797,40 @@ loader.load(
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
-    // --- Classify every mesh into one of four explode categories ---
-    const topMeshes = [];      // tabletop faces — rigid, straight up
-    const scrapMeshes = [];    // scrap connector blocks — out AND up
-    const screwMeshes = [];    // fasteners — slide along their own shaft axis
-    const otherLegMeshes = []; // post + arches — straight out horizontally
+    // Recursively collect every mesh under a given node, regardless of nesting depth
+function collectMeshes(node, out) {
+  if (node.isMesh) out.push(node);
+  node.children.forEach((c) => collectMeshes(c, out));
+}
 
-    model.traverse((child) => {
-      if (!child.isMesh || !child.name) return;
-      if (child.name.startsWith('Tabletop')) {
-        topMeshes.push(child);
-      } else if (child.name.includes('Scrap')) {
-        scrapMeshes.push(child);
-      } else if (child.name.startsWith('91420A')) {
-        screwMeshes.push(child);
-      } else {
-        otherLegMeshes.push(child);
-      }
-    });
+// Step 1: collect every mesh in the whole model, no matter where names live
+const allModelMeshes = [];
+collectMeshes(model, allModelMeshes);
+
+// Step 2: search EVERY node (mesh or wrapper Group) for a name match —
+// descriptive names like "Tabletop" or "Scrap connector" often live on a
+// parent wrapper rather than the mesh itself, so we can't rely on
+// child.isMesh && child.name matching directly.
+const topMeshes = [];
+const scrapMeshes = [];
+const screwMeshes = [];
+
+model.traverse((child) => {
+  if (!child.name) return;
+  if (child.name.startsWith('Tabletop')) {
+    collectMeshes(child, topMeshes);
+  } else if (child.name.includes('Scrap')) {
+    collectMeshes(child, scrapMeshes);
+  } else if (child.name.startsWith('91420A')) {
+    collectMeshes(child, screwMeshes);
+  }
+});
+
+// Step 3: everything else = all meshes minus the three matched categories.
+// This sidesteps the risk of an "else" branch accidentally matching the
+// model's own root node name and vacuuming up every mesh in the scene.
+const specialSet = new Set([...topMeshes, ...scrapMeshes, ...screwMeshes]);
+const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
     function localCentroid(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();

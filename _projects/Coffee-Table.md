@@ -841,11 +841,15 @@ loader.load(
     ]);
     const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
 
-    function localCentroid(mesh) {
-      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-      const c = new THREE.Vector3();
-      mesh.geometry.boundingBox.getCenter(c);
-      return c;
+    const tempBox = new THREE.Box3();
+
+    function worldCentroid(mesh) {
+        tempBox.setFromObject(mesh);
+
+        const c = new THREE.Vector3();
+        tempBox.getCenter(c);
+
+        return c;
     }
 
     const legLikeMeshes = [
@@ -855,13 +859,13 @@ loader.load(
     ];
     const overallCenter = new THREE.Vector3();
     if (legLikeMeshes.length > 0) {
-      legLikeMeshes.forEach((m) => overallCenter.add(localCentroid(m)));
+      legLikeMeshes.forEach((m) => overallCenter.add(worldCentroid(m)));
       overallCenter.divideScalar(legLikeMeshes.length);
     }
 
     const quadrants = [[], [], [], []];
     legLikeMeshes.forEach((mesh) => {
-      const c = localCentroid(mesh);
+      const c = worldCentroid(mesh);
       const dx = c.x - overallCenter.x;
       const dz = c.z - overallCenter.z;
       let idx;
@@ -875,7 +879,7 @@ loader.load(
     function quadrantDirection(meshes) {
       if (meshes.length === 0) return new THREE.Vector3(1, 0, 0);
       const centroid = new THREE.Vector3();
-      meshes.forEach((m) => centroid.add(localCentroid(m)));
+      meshes.forEach((m) => centroid.add(worldCentroid(m)));
       centroid.divideScalar(meshes.length);
       const dir = centroid.clone().sub(overallCenter);
       dir.y = 0;
@@ -954,6 +958,10 @@ loader.load(
       if (axis.dot(outDir) < 0) axis.negate();
       explodeData.push({ mesh, offset: axis.multiplyScalar(SCREW_EXPLODE_DISTANCE) });
     });
+    
+    explodeData.forEach((entry) => {
+    entry.base = entry.mesh.position.clone();
+    });
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Scrap connectors:', scrapMeshes.length, '/ expected 88');
@@ -985,9 +993,13 @@ loader.load(
 );
 
 function applyExplode(factor) {
-  explodeData.forEach(({ mesh, offset }) => {
-    mesh.position.copy(offset.clone().multiplyScalar(factor));
-  });
+
+    explodeData.forEach(({mesh, base, offset}) => {
+
+        mesh.position.copy(base).addScaledVector(offset, factor);
+
+    });
+
 }
 
 wrap.addEventListener('wheel', (e) => {

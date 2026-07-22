@@ -918,8 +918,15 @@ loader.load(
       const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const perp = new THREE.Vector3(-dir.z, 0, dir.x);
       const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
-        .add(perp.multiplyScalar(SEPARATION_DISTANCE))
-        .add(new THREE.Vector3(0, ARCH_VERTICAL_OFFSET, 0));
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
+      explodeData.push({ mesh, offset });
+    });
+
+    leftLeanMeshes.forEach((mesh) => {
+      const dir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3(dir.z, 0, -dir.x);
+      const offset = dir.clone().multiplyScalar(EXPLODE_DISTANCE)
+        .add(perp.multiplyScalar(SEPARATION_DISTANCE));
       explodeData.push({ mesh, offset });
     });
 

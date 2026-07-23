@@ -837,7 +837,17 @@ loader.load(
     const screwMeshes = [];
     const screwGroups = [];
 
-    // should keep all screws together - prevent them from dissassembling into parts during explode
+    const tempBox = new THREE.Box3();
+    function worldCentroid(mesh) {
+      tempBox.setFromObject(mesh);
+      const c = new THREE.Vector3();
+      tempBox.getCenter(c);
+      return c;
+    }
+
+    const screwMeshes = [];
+    let screwGroups = []; // built via spatial clustering below, not during traversal
+
     function classify(node) {
       if (!node.name) {
         node.children.forEach(classify);
@@ -853,10 +863,11 @@ loader.load(
         collectMeshes(node, legScrapMeshes);
         return;
       } else if (node.name.includes('91420A')) {
-        const group = [];
-        collectMeshes(node, group);
-        screwGroups.push(group);
-        screwMeshes.push(...group);
+        // Don't group per-node here — a screw's head and shaft can be
+        // exported as two independent matched nodes rather than sharing a
+        // parent, so grouping by traversal match splits them apart. Collect
+        // every matching mesh into one flat list; cluster by proximity below.
+        collectMeshes(node, screwMeshes);
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -872,21 +883,48 @@ loader.load(
     }
     classify(model);
 
-    console.log('Screw groups:', screwGroups.length, '— avg meshes/group:', (screwMeshes.length / screwGroups.length).toFixed(2));
+    // --- Cluster screw meshes by physical proximity ---
+    // Reunites a screw's head with its own shaft (which the export may have
+    // split into two independent nodes) using union-find over centroid
+    // distance, so every physical screw always moves as one rigid piece.
+    {
+      const CLUSTER_THRESHOLD = 0.05; // tune up/down based on the log below
+      const thresholdSq = CLUSTER_THRESHOLD * CLUSTER_THRESHOLD;
+      const centroids = screwMeshes.map((m) => worldCentroid(m));
+      const parentIdx = screwMeshes.map((_, i) => i);
+      function find(x) {
+        while (parentIdx[x] !== x) { parentIdx[x] = parentIdx[parentIdx[x]]; x = parentIdx[x]; }
+        return x;
+      }
+      function union(a, b) {
+        const ra = find(a), rb = find(b);
+        if (ra !== rb) parentIdx[ra] = rb;
+      }
+      for (let i = 0; i < screwMeshes.length; i++) {
+        for (let j = i + 1; j < screwMeshes.length; j++) {
+          if (centroids[i].distanceToSquared(centroids[j]) < thresholdSq) union(i, j);
+        }
+      }
+      const clusters = new Map();
+      for (let i = 0; i < screwMeshes.length; i++) {
+        const root = find(i);
+        if (!clusters.has(root)) clusters.set(root, []);
+        clusters.get(root).push(screwMeshes[i]);
+      }
+      screwGroups = [...clusters.values()];
+    }
+
+    console.log(
+      'Screw groups after clustering:', screwGroups.length,
+      '— avg meshes/group:', (screwMeshes.length / screwGroups.length).toFixed(2),
+      '(should now be > 1.00, ideally close to 2 if every screw = head + shaft)'
+    );
 
     const specialSet = new Set([
       ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,
       ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,
     ]);
     const otherLegMeshes = allModelMeshes.filter((m) => !specialSet.has(m));
-
-    const tempBox = new THREE.Box3();
-    function worldCentroid(mesh) {
-      tempBox.setFromObject(mesh);
-      const c = new THREE.Vector3();
-      tempBox.getCenter(c);
-      return c;
-    }
 
     function groupCentroid(meshes) {
       if (meshes.length === 0) return null;

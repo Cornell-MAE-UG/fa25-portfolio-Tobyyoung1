@@ -771,7 +771,7 @@ const EXPLODE_TOP = 0.4;
 const EXPLODE_LEG_PHASE1 = 0.22;
 const EXPLODE_LEG_PHASE2 = 0.35;
 const ARCH_SEPARATION = 0.35;
-const TABLE_SCRAP_HOVER = 0.2;
+const TABLE_SCRAP_HOVER = 0.5;
 const LEG_SCRAP_SLIDE = 0.32;
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
@@ -785,6 +785,12 @@ function smoothstep(edge0, edge1, x) {
 function collectMeshes(node, out) {
   if (node.isMesh) out.push(node);
   node.children.forEach((c) => collectMeshes(c, out));
+}
+
+function modelSpacePos(mesh) {
+  const v = new THREE.Vector3();
+  mesh.getWorldPosition(v);
+  return model.worldToLocal(v);
 }
 
 loader.load(
@@ -1051,10 +1057,12 @@ loader.load(
       });
     });
 
-    // Stamp every entry with its rest position now that ALL explodeData
-    // entries (legs, tabletop, connectors, screws) have been pushed.
+    // Stamp rest position in MODEL space (not local .position). This is
+    // what makes multi-submesh parts — like a screw's separate head/shaft
+    // meshes — move as one rigid piece even when siblings have different
+    // local rotations baked in from the export.
     explodeData.forEach((entry) => {
-      entry.base = entry.mesh.position.clone();
+      entry.baseModel = modelSpacePos(entry.mesh);
     });
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
@@ -1088,20 +1096,28 @@ loader.load(
 );
 
 // add near the other constants
-const TABLE_SCREW_PULLOUT = 0.14; // extra distance to clear the hole, along screw axis
+const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along screw axis
 
 // in applyExplode(), after the existing phase1/phase2 blend:
 function applyExplode(factor) {
   const p1 = smoothstep(0, PHASE1_END, factor);
   const p2 = smoothstep(PHASE2_START, 1, factor);
-  explodeData.forEach(({ mesh, base, phase1Offset, phase2Offset, extraOffset, extraT0, extraT1 }) => {
-    mesh.position.copy(base)
+  const targetModel = new THREE.Vector3();
+  const targetWorld = new THREE.Vector3();
+  const targetLocal = new THREE.Vector3();
+  explodeData.forEach(({ mesh, baseModel, phase1Offset, phase2Offset, extraOffset, extraT0, extraT1 }) => {
+    targetModel.copy(baseModel)
       .addScaledVector(phase1Offset, p1)
       .addScaledVector(phase2Offset, p2);
     if (extraOffset) {
       const pExtra = smoothstep(extraT0, extraT1, factor);
-      mesh.position.addScaledVector(extraOffset, pExtra);
+      targetModel.addScaledVector(extraOffset, pExtra);
     }
+    targetWorld.copy(targetModel);
+    model.localToWorld(targetWorld);
+    targetLocal.copy(targetWorld);
+    if (mesh.parent) mesh.parent.worldToLocal(targetLocal);
+    mesh.position.copy(targetLocal);
   });
 }
 

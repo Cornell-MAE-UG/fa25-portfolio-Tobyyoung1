@@ -1015,6 +1015,20 @@ loader.load(
       axis.applyQuaternion(worldQuat);
       return axis;
     }
+    function screwAxisFromGroup(group) {
+      if (group.length < 2) return principalAxisWorld(group[0]); // lone mesh fallback
+      const centroids = group.map((m) => worldCentroid(m));
+      let maxDistSq = -1, a = 0, b = 1;
+      for (let i = 0; i < centroids.length; i++) {
+        for (let j = i + 1; j < centroids.length; j++) {
+          const d = centroids[i].distanceToSquared(centroids[j]);
+          if (d > maxDistSq) { maxDistSq = d; a = i; b = j; }
+        }
+      }
+      const axis = centroids[b].clone().sub(centroids[a]);
+      if (axis.lengthSq() < 1e-10) return principalAxisWorld(group[0]);
+      return axis.normalize();
+    }
 
     // Tabletop: rises in phase 1, holds in phase 2
     topMeshes.forEach((mesh) => {
@@ -1081,28 +1095,6 @@ loader.load(
       }
     });
 
-    // For each table-scrap connector, find its own three local axes in
-    // world space (from its own rotation — stable, since it's one solid
-    // block, not many thin, easily-ambiguous screw meshes).
-    const connectorAxes = new Map(); // connectorRef -> [xAxis, yAxis, zAxis] (world space)
-    const connectorMeshByRef = new Map();
-
-    scrapRefs.forEach((ref) => {
-      if (!ref.isTableScrap) return;
-      const connectorMesh = tableScrapMeshes.find(
-        (m) => worldCentroid(m).distanceToSquared(ref.c) < 1e-6
-      );
-      if (!connectorMesh) return;
-      connectorMeshByRef.set(ref, connectorMesh);
-
-      const worldQuat = new THREE.Quaternion();
-      connectorMesh.getWorldQuaternion(worldQuat);
-      const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(worldQuat);
-      const yAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat);
-      const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQuat);
-      connectorAxes.set(ref, [xAxis, yAxis, zAxis]);
-    });
-
     // For each screw, pick WHICHEVER of the connector's 3 local axes points
     // most directly from the connector toward that specific screw. This is
     // per-screw (so horizontal-hole screws and vertical-hole screws on the
@@ -1121,21 +1113,12 @@ loader.load(
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
 
-        const axes = connectorAxes.get(best);
+        // The screw's own head-to-shaft centroid vector IS its true shaft
+        // axis — measured directly from the screw's own geometry, so it's
+        // correct regardless of where on the connector face it sits.
+        const axis = screwAxisFromGroup(group);
         const dirToScrew = c.clone().sub(best.c);
-
-        let axis = new THREE.Vector3(0, 1, 0); // fallback
-        if (axes && dirToScrew.lengthSq() > 1e-10) {
-          dirToScrew.normalize();
-          let bestAxis = axes[0];
-          let bestDot = -Infinity;
-          axes.forEach((candidate) => {
-            const d = Math.abs(candidate.dot(dirToScrew));
-            if (d > bestDot) { bestDot = d; bestAxis = candidate; }
-          });
-          axis = bestAxis.clone();
-          if (axis.dot(dirToScrew) < 0) axis.negate();
-        }
+        if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
 
         extraOffset = axis.multiplyScalar(TABLE_SCREW_PULLOUT);
         extraT0 = PHASE1_END;

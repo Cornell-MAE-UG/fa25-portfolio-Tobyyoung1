@@ -834,8 +834,6 @@ loader.load(
     const middleMeshes = [];
     const rightLeanMeshes = [];
     const leftLeanMeshes = [];
-    const screwMeshes = [];
-    const screwGroups = [];
 
     const tempBox = new THREE.Box3();
     function worldCentroid(mesh) {

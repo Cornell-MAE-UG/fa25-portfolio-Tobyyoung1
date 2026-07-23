@@ -837,27 +837,39 @@ loader.load(
     const screwMeshes = [];
     const screwGroups = [];
 
-    model.traverse((child) => {
-      if (!child.name) return;
-      if (child.name.startsWith('Tabletop')) {
-        collectMeshes(child, topMeshes);
-      } else if (child.name.includes('Table') && child.name.includes('Scrap')) {
-        collectMeshes(child, tableScrapMeshes);
-      } else if (child.name.includes('Scrap')) {
-        collectMeshes(child, legScrapMeshes);
-      } else if (child.name.includes('91420A')) {
+    function classify(node) {
+      if (!node.name) {
+        node.children.forEach(classify);
+        return;
+      }
+      if (node.name.startsWith('Tabletop')) {
+        collectMeshes(node, topMeshes);
+        return; // stop — don't classify this node's children separately
+      } else if (node.name.includes('Table') && node.name.includes('Scrap')) {
+        collectMeshes(node, tableScrapMeshes);
+        return;
+      } else if (node.name.includes('Scrap')) {
+        collectMeshes(node, legScrapMeshes);
+        return;
+      } else if (node.name.includes('91420A')) {
         const group = [];
-        collectMeshes(child, group);
+        collectMeshes(node, group);
         screwGroups.push(group);
         screwMeshes.push(...group);
-      } else if (child.name.startsWith('Middle')) {
-        collectMeshes(child, middleMeshes);
-      } else if (child.name.startsWith('Right')) {
-        collectMeshes(child, rightLeanMeshes);
-      } else if (child.name.startsWith('Left')) {
-        collectMeshes(child, leftLeanMeshes);
+        return;
+      } else if (node.name.startsWith('Middle')) {
+        collectMeshes(node, middleMeshes);
+        return;
+      } else if (node.name.startsWith('Right')) {
+        collectMeshes(node, rightLeanMeshes);
+        return;
+      } else if (node.name.startsWith('Left')) {
+        collectMeshes(node, leftLeanMeshes);
+        return;
       }
-    });
+      node.children.forEach(classify);
+    }
+    classify(model);
 
     const specialSet = new Set([
       ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,

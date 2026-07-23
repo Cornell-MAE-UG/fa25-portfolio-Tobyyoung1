@@ -773,8 +773,7 @@ const EXPLODE_LEG_PHASE2 = 0.35;
 const ARCH_SEPARATION = 0.35;
 const TABLE_SCRAP_HOVER = 0.2;
 const LEG_SCRAP_SLIDE = 0.32;
-const TABLE_SCREW_FOLLOW_SCALE = 0.95; // rides almost fully with the connector's rise
-const LEG_SCREW_FOLLOW_SCALE = 0.18;   // barely peeks out of its hole
+const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
 
@@ -945,7 +944,7 @@ loader.load(
       // middleGroup gets no entry — it stays as the anchor the arches pull away from
     });
 
-    function principalAxis(mesh) {
+    function principalAxisWorld(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const s = new THREE.Vector3();
       mesh.geometry.boundingBox.getSize(s);
@@ -953,7 +952,9 @@ loader.load(
       if (s.x >= s.y && s.x >= s.z) axis = new THREE.Vector3(1, 0, 0);
       else if (s.y >= s.x && s.y >= s.z) axis = new THREE.Vector3(0, 1, 0);
       else axis = new THREE.Vector3(0, 0, 1);
-      axis.applyQuaternion(mesh.quaternion);
+      const worldQuat = new THREE.Quaternion();
+      mesh.getWorldQuaternion(worldQuat);
+      axis.applyQuaternion(worldQuat);
       return axis;
     }
 
@@ -1000,7 +1001,6 @@ loader.load(
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
 
-      // Centroid of the whole screw, not just one submesh
       const c = new THREE.Vector3();
       group.forEach((m) => c.add(worldCentroid(m)));
       c.divideScalar(group.length);
@@ -1012,27 +1012,36 @@ loader.load(
         if (d < bestDist) { bestDist = d; best = ref; }
       });
 
-      const scale = best && best.isTableScrap ? TABLE_SCREW_FOLLOW_SCALE : LEG_SCREW_FOLLOW_SCALE;
-      const p1Offset = best ? best.phase1Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
-      const p2Offset = best ? best.phase2Offset.clone().multiplyScalar(scale) : new THREE.Vector3();
-
+      let p1Offset, p2Offset;
       let extraOffset = null;
       let extraT0, extraT1;
+
       if (best && best.isTableScrap) {
-        // Fixed world-up axis, shared by the whole screw — connectors rise
-        // straight up, so every screw pulling out of one moves the same way.
-        extraOffset = new THREE.Vector3(0, TABLE_SCREW_PULLOUT, 0);
-        extraT0 = PHASE1_END * 0.55;
-        extraT1 = PHASE1_END;
+        // Move in exact lockstep with the connector during the rise — same
+        // offset, same timing — so the screw stays visually attached to
+        // the wood instead of drifting ahead of it.
+        p1Offset = best.phase1Offset.clone();
+        p2Offset = new THREE.Vector3();
+
+        // Only once the connector has fully arrived does the screw back
+        // out of its hole, along its OWN world-space shaft axis (not a
+        // fixed vertical guess), oriented away from the connector body.
+        const axis = principalAxisWorld(group[0]);
+        const refDir = c.clone().sub(best.c);
+        if (refDir.lengthSq() > 1e-8 && axis.dot(refDir) < 0) axis.negate();
+        extraOffset = axis.multiplyScalar(TABLE_SCREW_PULLOUT);
+        extraT0 = PHASE1_END;
+        extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
+      } else if (best) {
+        p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+        p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+      } else {
+        p1Offset = new THREE.Vector3();
+        p2Offset = new THREE.Vector3();
       }
 
-      // Apply the identical offset to every submesh in this screw
       group.forEach((mesh) => {
-        const entry = {
-          mesh,
-          phase1Offset: p1Offset.clone(),
-          phase2Offset: p2Offset.clone(),
-        };
+        const entry = { mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() };
         if (extraOffset) {
           entry.extraOffset = extraOffset.clone();
           entry.extraT0 = extraT0;

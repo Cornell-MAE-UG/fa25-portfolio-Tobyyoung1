@@ -1071,7 +1071,6 @@ loader.load(
         if (d < bestDist) { bestDist = d; best = ref; }
       });
       
-    }
       screwInfo.set(group, { best, c });
       group.forEach((m) => console.log(m.name));
       if (Math.sqrt(bestDist) > 0.4) {

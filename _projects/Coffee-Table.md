@@ -1017,11 +1017,12 @@ loader.load(
     // screws only peek partway out of their holes.
     const scrapRefs = [...tableScrapRefs, ...legScrapRefs];
 
-    // Compute ONE offset per screw group (not per submesh) so shaft, head,
-    // and threads all move together as a single rigid fastener.
+    // Group screws by their nearest connector
+    const screwsByConnector = new Map(); // connectorRef -> screwGroups[]
+    const screwInfo = new Map();          // screwGroup -> { best, c }
+
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
-
       const c = new THREE.Vector3();
       group.forEach((m) => c.add(worldCentroid(m)));
       c.divideScalar(group.length);
@@ -1033,23 +1034,69 @@ loader.load(
         if (d < bestDist) { bestDist = d; best = ref; }
       });
 
+      screwInfo.set(group, { best, c });
+      if (best) {
+        if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
+        screwsByConnector.get(best).push(group);
+      }
+    });
+
+    // For each table-scrap connector, find its own three local axes in
+    // world space (from its own rotation — stable, since it's one solid
+    // block, not many thin, easily-ambiguous screw meshes).
+    const connectorAxes = new Map(); // connectorRef -> [xAxis, yAxis, zAxis] (world space)
+    const connectorMeshByRef = new Map();
+
+    scrapRefs.forEach((ref) => {
+      if (!ref.isTableScrap) return;
+      const connectorMesh = tableScrapMeshes.find(
+        (m) => worldCentroid(m).distanceToSquared(ref.c) < 1e-6
+      );
+      if (!connectorMesh) return;
+      connectorMeshByRef.set(ref, connectorMesh);
+
+      const worldQuat = new THREE.Quaternion();
+      connectorMesh.getWorldQuaternion(worldQuat);
+      const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(worldQuat);
+      const yAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat);
+      const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQuat);
+      connectorAxes.set(ref, [xAxis, yAxis, zAxis]);
+    });
+
+    // For each screw, pick WHICHEVER of the connector's 3 local axes points
+    // most directly from the connector toward that specific screw. This is
+    // per-screw (so horizontal-hole screws and vertical-hole screws on the
+    // SAME connector get different, correct directions) while staying
+    // stable (the axis candidates come from the connector's own geometry,
+    // not the screw's own thin/ambiguous bounding box).
+    screwGroups.forEach((group) => {
+      if (group.length === 0) return;
+      const { best, c } = screwInfo.get(group) || {};
+
       let p1Offset, p2Offset;
       let extraOffset = null;
       let extraT0, extraT1;
 
       if (best && best.isTableScrap) {
-        // Move in exact lockstep with the connector during the rise — same
-        // offset, same timing — so the screw stays visually attached to
-        // the wood instead of drifting ahead of it.
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
 
-        // Only once the connector has fully arrived does the screw back
-        // out of its hole, along its OWN world-space shaft axis (not a
-        // fixed vertical guess), oriented away from the connector body.
-        const axis = principalAxisWorld(group[0]);
-        const refDir = c.clone().sub(best.c);
-        if (refDir.lengthSq() > 1e-8 && axis.dot(refDir) < 0) axis.negate();
+        const axes = connectorAxes.get(best);
+        const dirToScrew = c.clone().sub(best.c);
+
+        let axis = new THREE.Vector3(0, 1, 0); // fallback
+        if (axes && dirToScrew.lengthSq() > 1e-10) {
+          dirToScrew.normalize();
+          let bestAxis = axes[0];
+          let bestDot = -Infinity;
+          axes.forEach((candidate) => {
+            const d = Math.abs(candidate.dot(dirToScrew));
+            if (d > bestDot) { bestDot = d; bestAxis = candidate; }
+          });
+          axis = bestAxis.clone();
+          if (axis.dot(dirToScrew) < 0) axis.negate();
+        }
+
         extraOffset = axis.multiplyScalar(TABLE_SCREW_PULLOUT);
         extraT0 = PHASE1_END;
         extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
@@ -1060,6 +1107,17 @@ loader.load(
         p1Offset = new THREE.Vector3();
         p2Offset = new THREE.Vector3();
       }
+
+      group.forEach((mesh) => {
+        const entry = { mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() };
+        if (extraOffset) {
+          entry.extraOffset = extraOffset.clone();
+          entry.extraT0 = extraT0;
+          entry.extraT1 = extraT1;
+        }
+        explodeData.push(entry);
+      });
+    });
 
       group.forEach((mesh) => {
         const entry = { mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() };

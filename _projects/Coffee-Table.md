@@ -837,6 +837,7 @@ loader.load(
     const screwMeshes = [];
     const screwGroups = [];
 
+    // should keep all screws together - prevent them from dissassembling into parts during explode
     function classify(node) {
       if (!node.name) {
         node.children.forEach(classify);
@@ -844,7 +845,7 @@ loader.load(
       }
       if (node.name.startsWith('Tabletop')) {
         collectMeshes(node, topMeshes);
-        return; // stop — don't classify this node's children separately
+        return;
       } else if (node.name.includes('Table') && node.name.includes('Scrap')) {
         collectMeshes(node, tableScrapMeshes);
         return;
@@ -870,6 +871,8 @@ loader.load(
       node.children.forEach(classify);
     }
     classify(model);
+
+    console.log('Screw groups:', screwGroups.length, '— avg meshes/group:', (screwMeshes.length / screwGroups.length).toFixed(2));
 
     const specialSet = new Set([
       ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,

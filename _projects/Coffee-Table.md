@@ -1119,17 +1119,6 @@ loader.load(
       });
     });
 
-      group.forEach((mesh) => {
-        const entry = { mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() };
-        if (extraOffset) {
-          entry.extraOffset = extraOffset.clone();
-          entry.extraT0 = extraT0;
-          entry.extraT1 = extraT1;
-        }
-        explodeData.push(entry);
-      });
-    });
-
     // Stamp rest position in MODEL space (not local .position). This is
     // what makes multi-submesh parts — like a screw's separate head/shaft
     // meshes — move as one rigid piece even when siblings have different

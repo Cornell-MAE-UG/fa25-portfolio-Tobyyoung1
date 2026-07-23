@@ -1072,6 +1072,9 @@ loader.load(
       });
 
       screwInfo.set(group, { best, c });
+      group.forEach((m) => console.log(m.name));
+      console.log("Distance:", Math.sqrt(bestDist));
+      console.log("----------------");
       if (best) {
         if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
         screwsByConnector.get(best).push(group);

@@ -1070,11 +1070,15 @@ loader.load(
         const d = c.distanceToSquared(ref.c);
         if (d < bestDist) { bestDist = d; best = ref; }
       });
-
+      
+    }
       screwInfo.set(group, { best, c });
       group.forEach((m) => console.log(m.name));
-      console.log("Distance:", Math.sqrt(bestDist));
-      console.log("----------------");
+      if (Math.sqrt(bestDist) > 0.4) {
+          console.log("Distance:", Math.sqrt(bestDist));
+          console.log("Connector:", best);
+          console.log(group);
+      }      
       if (best) {
         if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
         screwsByConnector.get(best).push(group);

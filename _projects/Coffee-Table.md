@@ -776,6 +776,7 @@ const LEG_SCRAP_SLIDE = 0.32;
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
+const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along screw axis
 
 function smoothstep(edge0, edge1, x) {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
@@ -1192,9 +1193,6 @@ loader.load(
     loading.innerHTML = '<span style="color:#a05050;font-family:DM Mono,monospace;font-size:11px;">Model failed to load</span>';
   }
 );
-
-// add near the other constants
-const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along screw axis
 
 // in applyExplode(), after the existing phase1/phase2 blend:
 function applyExplode(factor) {

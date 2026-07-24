@@ -845,7 +845,7 @@ loader.load(
     }
 
     const screwMeshes = [];
-    const screwGroups = []; // one group per 91420A node — populated directly during traversal
+    const screwsByInstance = new Map(); // instanceId -> meshes, keeps head+shaft+thread together
 
     function classify(node) {
       if (!node.name) {
@@ -862,13 +862,13 @@ loader.load(
         collectMeshes(node, legScrapMeshes);
         return;
       } else if (node.name.includes('91420A')) {
-        // Each named screw node gets its own group — this keeps all of a
-        // single screw's submeshes (head, shaft, thread detail, etc.)
-        // together as one rigid piece, without needing proximity clustering.
-        const group = [];
-        collectMeshes(node, group);
-        screwGroups.push(group);
-        screwMeshes.push(...group);
+        // Strip a trailing component suffix (_Head, _Shaft, _Thread, _1, etc.)
+        // so sibling nodes belonging to the same physical screw are grouped
+        // together instead of becoming separate one-mesh "screws". Adjust
+        // this regex if your actual export uses different suffixes.
+        const instanceId = node.name.replace(/_(Head|Shaft|Thread)?\d*$/i, '');
+        if (!screwsByInstance.has(instanceId)) screwsByInstance.set(instanceId, []);
+        collectMeshes(node, screwsByInstance.get(instanceId));
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -881,12 +881,28 @@ loader.load(
         return;
       }
       node.children.forEach(classify);
+      // TEMP DIAGNOSTIC — paste after classify(model) runs
+      allModelMeshes.forEach((m) => {
+        if (!m.name.includes('91420A')) {
+          const c = worldCentroid(m);
+          let nearest = Infinity, nearestName = '';
+          screwGroups.forEach((g) => {
+            g.forEach((sm) => {
+              const d = c.distanceTo(worldCentroid(sm));
+              if (d < nearest) { nearest = d; nearestName = sm.name; }
+            });
+          });
+          if (nearest < 0.05) console.log('NON-SCREW MESH NEAR A SCREW:', m.name, 'dist:', nearest.toFixed(4), 'near', nearestName);
+        }
+      });
     }
     classify(model);
-    // Find any screw group that looks abnormal: either way too spread out
-    // (a merged clump of multiple screws) or suspiciously tiny relative to
-    // its physical neighbors (a split screw whose parts didn't get grouped).
-    const groups = []; // rebuild groups the same way classify() does, using window.__ctModel
+
+    const screwGroups = Array.from(screwsByInstance.values());
+    screwGroups.forEach((group) => screwMeshes.push(...group));
+
+    // Find any screw group that looks abnormal: either way too spread out    const groups = []; // rebuild groups the same way classify() does, using window.__ctModel
+
     window.__ctModel.traverse((node) => {
       if (node.name && node.name.includes('91420A')) {
         const meshes = [];
@@ -1058,6 +1074,22 @@ loader.load(
       return axis;
     }
 
+    // Picks the most rod-like submesh in a screw group (highest long/mid
+    // bounding-box aspect ratio) to derive the axis from — a head, washer,
+    // or Phillips-cross shape has no reliable long axis, but the shaft does.
+    function pickShaftMesh(group) {
+      let best = group[0], bestRatio = -Infinity;
+      group.forEach((m) => {
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        const s = new THREE.Vector3();
+        m.geometry.boundingBox.getSize(s);
+        const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
+        const ratio = dims[2] / Math.max(dims[1], 1e-6);
+        if (ratio > bestRatio) { bestRatio = ratio; best = m; }
+      });
+      return best;
+    }
+
     // Tabletop: rises in phase 1, holds in phase 2
     topMeshes.forEach((mesh) => {
       explodeData.push({
@@ -1135,12 +1167,8 @@ loader.load(
         // The screw's own head-to-shaft centroid vector IS its true shaft
         // axis — measured directly from the screw's own geometry, so it's
         // correct regardless of where on the connector face it sits.
-        const axis = screwAxisFromVertices(group[0]);        console.log(
-          group[0].name,
-          axis.x.toFixed(3),
-          axis.y.toFixed(3),
-          axis.z.toFixed(3)
-        );
+        const shaftMesh = pickShaftMesh(group);
+        const axis = screwAxisFromVertices(shaftMesh);
         const dirToScrew = c.clone().sub(best.c);
         if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
 

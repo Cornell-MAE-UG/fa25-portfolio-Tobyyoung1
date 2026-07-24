@@ -845,7 +845,7 @@ loader.load(
     }
 
     const screwMeshes = [];
-    const screwsByInstance = new Map(); // instanceId -> meshes, keeps head+shaft+thread together
+    const screwGroups = []; // one group per 91420A node — each node is already one full screw mesh
 
     function classify(node) {
       if (!node.name) {
@@ -862,13 +862,12 @@ loader.load(
         collectMeshes(node, legScrapMeshes);
         return;
       } else if (node.name.includes('91420A')) {
-        // Strip a trailing component suffix (_Head, _Shaft, _Thread, _1, etc.)
-        // so sibling nodes belonging to the same physical screw are grouped
-        // together instead of becoming separate one-mesh "screws". Adjust
-        // this regex if your actual export uses different suffixes.
-        const instanceId = node.name.replace(/_(Head|Shaft|Thread)?\d*$/i, '');
-        if (!screwsByInstance.has(instanceId)) screwsByInstance.set(instanceId, []);
-        collectMeshes(node, screwsByInstance.get(instanceId));
+        // Each 91420A node is already one complete screw mesh (confirmed:
+        // meshCount 1 per screw in diagnostics) — one node = one group.
+        const group = [];
+        collectMeshes(node, group);
+        screwGroups.push(group);
+        screwMeshes.push(...group);
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -881,27 +880,30 @@ loader.load(
         return;
       }
       node.children.forEach(classify);
-      // TEMP DIAGNOSTIC — paste after classify(model) runs
-      allModelMeshes.forEach((m) => {
-        if (!m.name.includes('91420A')) {
-          const c = worldCentroid(m);
-          let nearest = Infinity, nearestName = '';
-          screwGroups.forEach((g) => {
-            g.forEach((sm) => {
-              const d = c.distanceTo(worldCentroid(sm));
-              if (d < nearest) { nearest = d; nearestName = sm.name; }
-            });
-          });
-          if (nearest < 0.05) console.log('NON-SCREW MESH NEAR A SCREW:', m.name, 'dist:', nearest.toFixed(4), 'near', nearestName);
-        }
-      });
     }
     classify(model);
 
-    const screwGroups = Array.from(screwsByInstance.values());
-    screwGroups.forEach((group) => screwMeshes.push(...group));
+    // DIAGNOSTIC — find non-screw meshes sitting suspiciously close to a
+    // screw. This catches pieces (like a Phillips-cross head shape) that
+    // are visually part of a screw but aren't named with "91420A", so they
+    // never enter screwGroups and instead get shoved by the generic leg
+    // offset — which is what causes them to visually "explode away" from
+    // their own screw's shaft.
+    allModelMeshes.forEach((m) => {
+      if (m.name.includes('91420A')) return;
+      const c = worldCentroid(m);
+      let nearest = Infinity, nearestName = '';
+      screwGroups.forEach((g) => {
+        g.forEach((sm) => {
+          const d = c.distanceTo(worldCentroid(sm));
+          if (d < nearest) { nearest = d; nearestName = sm.name; }
+        });
+      });
+      if (nearest < 0.05) console.log('NON-SCREW MESH NEAR A SCREW:', m.name, 'dist:', nearest.toFixed(4), 'near', nearestName);
+    });
 
-    // Find any screw group that looks abnormal: either way too spread out    const groups = []; // rebuild groups the same way classify() does, using window.__ctModel
+    // Find any screw group that looks abnormal: either way too spread out
+    const groups = []; // rebuild groups the same way classify() does, using window.__ctModel
 
     window.__ctModel.traverse((node) => {
       if (node.name && node.name.includes('91420A')) {

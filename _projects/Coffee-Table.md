@@ -882,39 +882,10 @@ loader.load(
     }
     classify(model);
 
-    // --- Cluster screw meshes by physical proximity ---
-    // Reunites a screw's head with its own shaft (which the export may have
-    // split into two independent nodes) using union-find over centroid
-    // distance, so every physical screw always moves as one rigid piece.
-    {
-      const CLUSTER_THRESHOLD = 0.05; // tune up/down based on the log below
-      const thresholdSq = CLUSTER_THRESHOLD * CLUSTER_THRESHOLD;
-      const centroids = screwMeshes.map((m) => worldCentroid(m));
-      const parentIdx = screwMeshes.map((_, i) => i);
-      function find(x) {
-        while (parentIdx[x] !== x) { parentIdx[x] = parentIdx[parentIdx[x]]; x = parentIdx[x]; }
-        return x;
-      }
-      function union(a, b) {
-        const ra = find(a), rb = find(b);
-        if (ra !== rb) parentIdx[ra] = rb;
-      }
-      for (let i = 0; i < screwMeshes.length; i++) {
-        for (let j = i + 1; j < screwMeshes.length; j++) {
-          if (centroids[i].distanceToSquared(centroids[j]) < thresholdSq) union(i, j);
-        }
-      }
-      const clusters = new Map();
-      for (let i = 0; i < screwMeshes.length; i++) {
-        const root = find(i);
-        if (!clusters.has(root)) clusters.set(root, []);
-        clusters.get(root).push(screwMeshes[i]);
-      }
-      screwGroups = [...clusters.values()];
-      const sizeCounts = {};
-      screwGroups.forEach((g) => { sizeCounts[g.length] = (sizeCounts[g.length] || 0) + 1; });
-      console.log('Screw cluster size distribution:', sizeCounts);
-    }
+    // Each screw is a single complete mesh per named node — no clustering
+    // needed. (Confirmed: screwMeshes.length already matches the expected
+    // total screw count 1:1 before any grouping.)
+    screwGroups = screwMeshes.map((m) => [m]);
 
     console.log(
       'Screw groups after clustering:', screwGroups.length,
@@ -1089,21 +1060,12 @@ loader.load(
       });
       
       screwInfo.set(group, { best, c });
-      group.forEach((m) => console.log(m.name));
-      console.log("Distance:", Math.sqrt(bestDist));
-      console.log("----------------");
       if (best) {
         if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
         screwsByConnector.get(best).push(group);
       }
     });
 
-    // For each screw, pick WHICHEVER of the connector's 3 local axes points
-    // most directly from the connector toward that specific screw. This is
-    // per-screw (so horizontal-hole screws and vertical-hole screws on the
-    // SAME connector get different, correct directions) while staying
-    // stable (the axis candidates come from the connector's own geometry,
-    // not the screw's own thin/ambiguous bounding box).
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const { best, c } = screwInfo.get(group) || {};

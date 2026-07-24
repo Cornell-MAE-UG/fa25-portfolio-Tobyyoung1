@@ -1025,6 +1025,39 @@ loader.load(
       return axis.normalize();
     }
 
+    function screwAxisFromVertices(mesh) {
+      const posAttr = mesh.geometry.attributes.position;
+      const n = posAttr.count;
+      const v = new THREE.Vector3();
+      const centroid = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(posAttr, i).applyMatrix4(mesh.matrixWorld);
+        centroid.add(v);
+      }
+      centroid.divideScalar(n);
+
+      let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(posAttr, i).applyMatrix4(mesh.matrixWorld).sub(centroid);
+        xx += v.x * v.x; xy += v.x * v.y; xz += v.x * v.z;
+        yy += v.y * v.y; yz += v.y * v.z; zz += v.z * v.z;
+      }
+
+      // Power iteration to find the dominant eigenvector of the covariance
+      // matrix — for a thin rod shape, this IS the shaft's true long axis,
+      // computed directly from real geometry, independent of node rotation.
+      let axis = new THREE.Vector3(1, 1, 1).normalize();
+      for (let iter = 0; iter < 25; iter++) {
+        const nx = xx * axis.x + xy * axis.y + xz * axis.z;
+        const ny = xy * axis.x + yy * axis.y + yz * axis.z;
+        const nz = xz * axis.x + yz * axis.y + zz * axis.z;
+        axis.set(nx, ny, nz);
+        if (axis.lengthSq() < 1e-20) return principalAxisWorld(mesh); // degenerate fallback
+        axis.normalize();
+      }
+      return axis;
+    }
+
     // Tabletop: rises in phase 1, holds in phase 2
     topMeshes.forEach((mesh) => {
       explodeData.push({
@@ -1102,12 +1135,11 @@ loader.load(
         // The screw's own head-to-shaft centroid vector IS its true shaft
         // axis — measured directly from the screw's own geometry, so it's
         // correct regardless of where on the connector face it sits.
-        const axis = screwAxisFromGroup(group);
-        console.log(
-            group[0].name,
-            axis.x.toFixed(3),
-            axis.y.toFixed(3),
-            axis.z.toFixed(3)
+        const axis = screwAxisFromVertices(group[0]);        console.log(
+          group[0].name,
+          axis.x.toFixed(3),
+          axis.y.toFixed(3),
+          axis.z.toFixed(3)
         );
         const dirToScrew = c.clone().sub(best.c);
         if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();

@@ -895,11 +895,8 @@ loader.load(
       }
     });
 
-    const box = new THREE.Box3();
-    function centroid(m) { box.setFromObject(m); const c = new THREE.Vector3(); box.getCenter(c); return c; }
-
-    const stats = groups.map((g) => {
-      const cs = g.meshes.map(centroid);
+      const stats = groups.map((g) => {
+      const cs = g.meshes.map(worldCentroid);
       let maxD = 0;
       for (let i = 0; i < cs.length; i++)
         for (let j = i + 1; j < cs.length; j++)

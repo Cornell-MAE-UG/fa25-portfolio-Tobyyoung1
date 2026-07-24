@@ -883,6 +883,33 @@ loader.load(
       node.children.forEach(classify);
     }
     classify(model);
+    // Find any screw group that looks abnormal: either way too spread out
+    // (a merged clump of multiple screws) or suspiciously tiny relative to
+    // its physical neighbors (a split screw whose parts didn't get grouped).
+    const groups = []; // rebuild groups the same way classify() does, using window.__ctModel
+    window.__ctModel.traverse((node) => {
+      if (node.name && node.name.includes('91420A')) {
+        const meshes = [];
+        (function collect(n) { if (n.isMesh) meshes.push(n); n.children.forEach(collect); })(node);
+        if (meshes.length) groups.push({ name: node.name, meshes });
+      }
+    });
+
+    const box = new THREE.Box3();
+    function centroid(m) { box.setFromObject(m); const c = new THREE.Vector3(); box.getCenter(c); return c; }
+
+    const stats = groups.map((g) => {
+      const cs = g.meshes.map(centroid);
+      let maxD = 0;
+      for (let i = 0; i < cs.length; i++)
+        for (let j = i + 1; j < cs.length; j++)
+          maxD = Math.max(maxD, cs[i].distanceTo(cs[j]));
+      return { name: g.name, meshCount: g.meshes.length, spanLength: maxD };
+    });
+
+    stats.sort((a, b) => b.spanLength - a.spanLength);
+    console.log('Top 10 largest-span screw groups:', stats.slice(0, 10));
+    console.log('Groups with only 1 mesh:', stats.filter(s => s.meshCount === 1).length, '/ total', stats.length);
 
     console.log(
       'Screw groups after clustering:', screwGroups.length,

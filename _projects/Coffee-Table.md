@@ -845,7 +845,7 @@ loader.load(
     }
 
     const screwMeshes = [];
-    let screwGroups = []; // built via spatial clustering below, not during traversal
+    const screwGroups = []; // one group per 91420A node — populated directly during traversal
 
     function classify(node) {
       if (!node.name) {
@@ -862,11 +862,13 @@ loader.load(
         collectMeshes(node, legScrapMeshes);
         return;
       } else if (node.name.includes('91420A')) {
-        // Don't group per-node here — a screw's head and shaft can be
-        // exported as two independent matched nodes rather than sharing a
-        // parent, so grouping by traversal match splits them apart. Collect
-        // every matching mesh into one flat list; cluster by proximity below.
-        collectMeshes(node, screwMeshes);
+        // Each named screw node gets its own group — this keeps all of a
+        // single screw's submeshes (head, shaft, thread detail, etc.)
+        // together as one rigid piece, without needing proximity clustering.
+        const group = [];
+        collectMeshes(node, group);
+        screwGroups.push(group);
+        screwMeshes.push(...group);
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -881,11 +883,6 @@ loader.load(
       node.children.forEach(classify);
     }
     classify(model);
-
-    // Each screw is a single complete mesh per named node — no clustering
-    // needed. (Confirmed: screwMeshes.length already matches the expected
-    // total screw count 1:1 before any grouping.)
-    screwGroups = screwMeshes.map((m) => [m]);
 
     console.log(
       'Screw groups after clustering:', screwGroups.length,

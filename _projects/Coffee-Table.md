@@ -884,7 +884,6 @@ loader.load(
     classify(model);
 
     // DIAGNOSTIC — find non-screw meshes sitting suspiciously close to a
-    // screw. This catches pieces (like a Phillips-cross head shape) that
     // are visually part of a screw but aren't named with "91420A", so they
     // never enter screwGroups and instead get shoved by the generic leg
     // offset — which is what causes them to visually "explode away" from

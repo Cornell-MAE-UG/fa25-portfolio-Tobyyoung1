@@ -911,6 +911,9 @@ loader.load(
         clusters.get(root).push(screwMeshes[i]);
       }
       screwGroups = [...clusters.values()];
+      const sizeCounts = {};
+      screwGroups.forEach((g) => { sizeCounts[g.length] = (sizeCounts[g.length] || 0) + 1; });
+      console.log('Screw cluster size distribution:', sizeCounts);
     }
 
     console.log(

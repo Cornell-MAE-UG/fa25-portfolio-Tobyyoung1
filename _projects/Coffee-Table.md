@@ -1056,6 +1056,13 @@ loader.load(
       group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
     });
 
+    // Tracks each individual arch instance (8 total: 4 legs × 2 arches) so
+    // leg screws can look up "my arch's" splay motion and separation offset
+    // directly, and so screws sharing an arch can share one pull-out axis
+    // (same fix pattern as the table-screw PCA noise issue).
+    const legArchGroups = []; // { meshes, legSplayPhase1, legSplayPhase2, archOffset }
+    const meshToArchGroup = new Map(); // arch mesh -> its legArchGroups entry
+
     // Split each leg into its 3 parts: middle post stays put as the anchor,
     // left/right arches separate away from it.
     // NOTE: dir is computed from world centroids (fine — same-instant world
@@ -1096,7 +1103,10 @@ loader.load(
         dir.y = 0; // flatten arch separation onto the X-Z plane
         if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
         const archOffset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
+        const archGroupEntry = { meshes: rightGroup, legSplayPhase1: legSplayPhase1.clone(), legSplayPhase2: legSplayPhase2.clone(), archOffset: archOffset.clone() };
+        legArchGroups.push(archGroupEntry);
         rightGroup.forEach((mesh) => {
+          meshToArchGroup.set(mesh, archGroupEntry);
           explodeData.push({
             mesh,
             phase1Offset: legSplayPhase1.clone(),
@@ -1113,7 +1123,10 @@ loader.load(
         dir.y = 0; // flatten arch separation onto the X-Z plane
         if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
         const archOffset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
+        const archGroupEntry = { meshes: leftGroup, legSplayPhase1: legSplayPhase1.clone(), legSplayPhase2: legSplayPhase2.clone(), archOffset: archOffset.clone() };
+        legArchGroups.push(archGroupEntry);
         leftGroup.forEach((mesh) => {
+          meshToArchGroup.set(mesh, archGroupEntry);
           explodeData.push({
             mesh,
             phase1Offset: legSplayPhase1.clone(),
@@ -1251,20 +1264,21 @@ loader.load(
     // Determines whether a screw (by its world centroid) sits nearest an
     // arch mesh or a middle-post mesh — used to identify which leg screws
     // are fastening into an arch's bottom hole (as opposed to fastening a
-    // scrap block into the post), so only the arch-attachment screws get
-    // the phase-2 pull-out motion.
-    function nearestLegPartLabel(centroid) {
-      let bestDist = Infinity, label = null;
-      const check = (arr, lbl) => {
+    // scrap block into the post). Returns the SPECIFIC arch instance
+    // (legArchGroups entry) it belongs to, or null if it's nearest the post.
+    function nearestLegPart(centroid) {
+      let bestDist = Infinity, bestMesh = null;
+      const consider = (arr) => {
         arr.forEach((m) => {
           const d = centroid.distanceToSquared(worldCentroid(m));
-          if (d < bestDist) { bestDist = d; label = lbl; }
+          if (d < bestDist) { bestDist = d; bestMesh = m; }
         });
       };
-      check(rightLeanMeshes, 'arch');
-      check(leftLeanMeshes, 'arch');
-      check(middleMeshes, 'post');
-      return label;
+      consider(rightLeanMeshes);
+      consider(leftLeanMeshes);
+      consider(middleMeshes);
+      if (!bestMesh) return null;
+      return meshToArchGroup.get(bestMesh) || null; // null = nearest the post
     }
 
     // Tabletop: rises in phase 1, holds in phase 2.
@@ -1312,6 +1326,8 @@ loader.load(
     // Group screws by their nearest connector
     const screwsByConnector = new Map(); // connectorRef -> screwGroups[]
     const screwInfo = new Map();          // screwGroup -> { best, c }
+    const screwArchMatch = new Map();     // screwGroup -> legArchGroups entry (or null)
+    const screwsByArch = new Map();       // legArchGroups entry -> screwGroups[]
 
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
@@ -1330,6 +1346,13 @@ loader.load(
       if (best) {
         if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
         screwsByConnector.get(best).push(group);
+      }
+
+      const archMatch = nearestLegPart(c);
+      screwArchMatch.set(group, archMatch);
+      if (archMatch) {
+        if (!screwsByArch.has(archMatch)) screwsByArch.set(archMatch, []);
+        screwsByArch.get(archMatch).push(group);
       }
     });
 
@@ -1358,6 +1381,30 @@ loader.load(
       connectorAxis.set(connector, axis);
     });
 
+    // Same shared-axis fix, applied per individual arch: every screw
+    // fastened into a given arch's bottom hole pulls out along one common
+    // direction instead of each voting on its own noisy per-screw PCA axis.
+    const archAxis = new Map(); // legArchGroups entry -> world-space unit axis
+    screwsByArch.forEach((groups, archGroupEntry) => {
+      const axis = computeSharedShaftAxis(groups);
+      if (!axis) return;
+
+      const archCentroid = groupCentroid(archGroupEntry.meshes);
+      const avgScrewCentroid = new THREE.Vector3();
+      groups.forEach((group) => {
+        const gc = new THREE.Vector3();
+        group.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(group.length);
+        avgScrewCentroid.add(gc);
+      });
+      avgScrewCentroid.divideScalar(groups.length);
+
+      const dirToScrews = avgScrewCentroid.clone().sub(archCentroid);
+      if (dirToScrews.lengthSq() > 1e-10 && axis.dot(dirToScrews) < 0) axis.negate();
+
+      archAxis.set(archGroupEntry, axis);
+    });
+
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const { best, c } = screwInfo.get(group) || {};
@@ -1383,23 +1430,34 @@ loader.load(
           extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
         }
       } else if (best) {
-        // best.phase1Offset / phase2Offset are already local.
-        p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
-        p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+        const archMatch = screwArchMatch.get(group);
 
-        // Arch-attachment screws (seated in the bottom hole of an arch, as
-        // opposed to the screws fastening a scrap block into the middle
-        // post) additionally pull out along their own shaft axis, timed to
-        // the SAME window the arch itself separates in (ARCH_PHASE_T0-T1)
-        // — so the screw visibly slides free right as its arch pulls away.
-        if (nearestLegPartLabel(c) === 'arch') {
-          const shaftMesh = pickShaftMesh(group);
-          const axis = screwAxisFromVertices(shaftMesh);
-          const dirToScrew = c.clone().sub(best.c);
-          if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
-          extraOffset = toLocalDir(axis.multiplyScalar(LEG_SCREW_PULLOUT));
+        if (archMatch) {
+          // Arch-attachment screw: inherit the SAME whole-leg splay motion
+          // as its arch (phase1Offset/phase2Offset) — this is what makes it
+          // move on the X-Z plane during phase 1 instead of sitting still
+          // (previously it only inherited the scrap connector's own offset,
+          // which is zero in phase 1).
+          p1Offset = archMatch.legSplayPhase1.clone();
+          p2Offset = archMatch.legSplayPhase2.clone();
+
+          // Shared per-arch axis (computed once above, not per screw) plus
+          // the arch's own separation offset — both timed to the same
+          // ARCH_PHASE_T0-T1 window the arch itself separates in, so the
+          // screw slides free exactly as its arch pulls away, in a single
+          // clean direction shared by every screw on that arch.
+          extraOffset = archMatch.archOffset.clone();
+          const axis = archAxis.get(archMatch);
+          if (axis) {
+            extraOffset.add(toLocalDir(axis.clone().multiplyScalar(LEG_SCREW_PULLOUT)));
+          }
           extraT0 = ARCH_PHASE_T0;
           extraT1 = ARCH_PHASE_T1;
+        } else {
+          // Post-attachment screw (fastens a scrap block into the middle
+          // post) — unchanged, follows its connector's own offset.
+          p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+          p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
         }
       } else {
         p1Offset = new THREE.Vector3();

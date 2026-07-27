@@ -1021,25 +1021,47 @@ loader.load(
       const middleC = groupCentroid(middleGroup);
       if (!middleC) return; // no middle post found for this leg, skip
 
+      // Whole-leg splay: post + both arches slide outward together from the
+      // model's overall center, confined to the X-Z plane (meshQuadrantDir
+      // already has Y zeroed) — no vertical component, ever. Split across
+      // phase1/phase2 so separation keeps increasing through both stages.
+      const legSplayDir = meshQuadrantDir.get(group[0]) || new THREE.Vector3(1, 0, 0);
+      const legSplayPhase1 = toLocalDir(legSplayDir.clone().multiplyScalar(EXPLODE_LEG_PHASE1));
+      const legSplayPhase2 = toLocalDir(legSplayDir.clone().multiplyScalar(EXPLODE_LEG_PHASE2));
+
+      // Middle post: only the whole-leg splay, nothing else — no arch-style
+      // offset, no Y component, so it moves straight outward on the X-Z plane.
+      middleGroup.forEach((mesh) => {
+        explodeData.push({ mesh, phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
+      });
+
       if (rightGroup.length) {
         const dir = groupCentroid(rightGroup).sub(middleC);
+        dir.y = 0; // flatten arch separation onto the X-Z plane
         if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
-        const offset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
+        const archOffset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
         rightGroup.forEach((mesh) => {
-          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+          explodeData.push({
+            mesh,
+            phase1Offset: legSplayPhase1.clone(),
+            phase2Offset: legSplayPhase2.clone().add(archOffset),
+          });
         });
       }
 
       if (leftGroup.length) {
         const dir = groupCentroid(leftGroup).sub(middleC);
+        dir.y = 0; // flatten arch separation onto the X-Z plane
         if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
-        const offset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
+        const archOffset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
         leftGroup.forEach((mesh) => {
-          explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
+          explodeData.push({
+            mesh,
+            phase1Offset: legSplayPhase1.clone(),
+            phase2Offset: legSplayPhase2.clone().add(archOffset),
+          });
         });
       }
-
-      // middleGroup gets no entry — it stays as the anchor the arches pull away from
     });
 
     function principalAxisWorld(mesh) {

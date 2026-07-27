@@ -440,7 +440,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <h2 class="ct-section-title">Curved tapered legs, designed in Fusion 360</h2>
         <div class="ct-body">
           <p>The defining feature of the table is its leg profile — a curved inner face with an 8" radius concave sweep, tapering from a wide foot to a narrow top. Each corner leg is built from three separate pieces rather than a single blank: a fir 2×2 center post, mitered at a 5° angle from corner to corner at both the top and bottom to create a diagonal tilt, flanked by two curved pine arches attached on either side to form the finished leg.</p>
-          <p>Each leg leans outward at 85° from vertical, giving the table a wide, stable stance while keeping the overall silhouette light. The geometry was fully modelled parametrically in Fusion 360, with engineering drawings generated directly from the CAD model to guide the physical build.</p>
+          <p>Each leg leans outward at 5° from vertical, giving the table a wide, stable stance while keeping the overall silhouette light. The geometry was fully modelled parametrically in Fusion 360, with engineering drawings generated directly from the CAD model to guide the physical build.</p>
         </div>
 
         <hr class="ct-divider">
@@ -457,7 +457,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
           <tr><td>Leg foot width</td><td>10.3"</td></tr>
           <tr><td>Inner curve radius</td><td>8" (8R)</td></tr>
           <tr><td>Leg lean angle</td><td>85° (5° off vertical)</td></tr>
-          <tr><td>Top cut angle</td><td>135°</td></tr>
+          <tr><td>Top cut angle</td><td>97°</td></tr>
           <tr><td>Material</td><td>Pine (structural), butcher block top</td></tr>
         </table>
 
@@ -546,11 +546,6 @@ image: /assets/images/Coffee-Table-Finished.jpeg
             <div class="ct-step-num">FINISHING</div>
             <div class="ct-step-name">Orbital sander</div>
             <div class="ct-step-desc">Progressive sanding from 80 → 120 → 220 grit on all surfaces. The curved profiles were shaped and refined by hand to achieve a smooth, consistent finish.</div>
-          </div>
-          <div class="ct-step-card">
-            <div class="ct-step-num">DRILLING</div>
-            <div class="ct-step-name">Cordless drill</div>
-            <div class="ct-step-desc">Used throughout assembly for pilot holes, fastening hidden wood blocks, and attaching the tabletop.</div>
           </div>
         </div>
 

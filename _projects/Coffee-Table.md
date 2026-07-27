@@ -414,7 +414,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
     <span class="ct-tag">Pine</span>
     <span class="ct-tag">Jigsaw</span>
     <span class="ct-tag">Circular Saw</span>
-    <span class="ct-tag">Pocket Hole Joinery</span>
+    <span class="ct-tag">Hidden Joinery</span>
     <span class="ct-tag">Furniture Design</span>
     <span class="ct-tag">CAD</span>
   </div>
@@ -439,7 +439,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <p class="ct-section-label">Concept</p>
         <h2 class="ct-section-title">Curved tapered legs, designed in Fusion 360</h2>
         <div class="ct-body">
-          <p>The defining feature of the table is its leg profile — a curved inner face with an 8" radius concave sweep, tapering from a wide foot to a narrow top. Each leg is built from three separate pieces of fir rather than a single blank: a central 2×2 post, mitered at a 5° angle from corner to corner at both the top and bottom to create a diagonal tilt, flanked by two curved arches — one leaning in each direction — attached on either side to form the finished corner leg.</p>
+          <p>The defining feature of the table is its leg profile — a curved inner face with an 8" radius concave sweep, tapering from a wide foot to a narrow top. Each corner leg is built from three separate pieces rather than a single blank: a fir 2×2 center post, mitered at a 5° angle from corner to corner at both the top and bottom to create a diagonal tilt, flanked by two curved pine arches attached on either side to form the finished leg.</p>
           <p>Each leg leans outward at 85° from vertical, giving the table a wide, stable stance while keeping the overall silhouette light. The geometry was fully modelled parametrically in Fusion 360, with engineering drawings generated directly from the CAD model to guide the physical build.</p>
         </div>
 
@@ -507,12 +507,13 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <p class="ct-section-label">Lumber</p>
         <h2 class="ct-section-title">Pine structure, butcher block top</h2>
         <div class="ct-body">
-          <p>The legs and apron are cut from standard pine dimensional lumber — cost-effective and widely available, with enough strength for a coffee table at this scale. The tabletop is a butcher block panel, chosen for its flat, stable surface and warm grain pattern.</p>
+          <p>The table combines standard pine dimensional lumber with fir to balance availability, workability, and appearance. Each corner leg is assembled from three separate components: a fir center post and two curved pine arches. Rather than using visible brackets or pocket-hole joinery, the pieces are connected with concealed wood blocking fastened from the inside, creating a clean exterior while maintaining a rigid structure. The tabletop is a factory-glued pine panel manufactured in a butcher block pattern, selected for its flat, stable surface and warm grain.</p>
           <ul>
-            <li><strong>Legs:</strong> 2" × 12" pine boards (4 legs, each ~17" blank)</li>
-            <li><strong>Apron:</strong> 1×4 pine, pocket-hole jointed to legs</li>
-            <li><strong>Top:</strong> Butcher block panel, 48" × 24"</li>
-            <li><strong>Finish:</strong> Wood stain, applied by hand</li>
+            <li><strong>Center posts:</strong> Fir dimensional lumber</li>
+            <li><strong>Curved arches:</strong> Pine dimensional lumber</li>
+            <li><strong>Joinery:</strong> Concealed wood blocking fastened with screws</li>
+            <li><strong>Top:</strong> 48" × 24" factory-glued pine butcher block panel</li>
+            <li><strong>Finish:</strong> Hand-applied wood stain</li>
           </ul>
         </div>
 
@@ -524,32 +525,32 @@ image: /assets/images/Coffee-Table-Finished.jpeg
           <div class="ct-step-card">
             <div class="ct-step-num">CUTTING</div>
             <div class="ct-step-name">Jigsaw</div>
-            <div class="ct-step-desc">Primary tool for the 8R concave leg curve — the only practical hand tool for this cut.</div>
+            <div class="ct-step-desc">Primary tool for cutting the 8R curved arch profile from 1:1 paper templates.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">CUTTING</div>
             <div class="ct-step-name">Mitre saw</div>
-            <div class="ct-step-desc">Angled crosscuts for the 135° top and 45° foot miter on each leg.</div>
+            <div class="ct-step-desc">Used for the 5° tapers on the fir center posts, compound top cuts, and foot miters on the curved arch pieces.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">CUTTING</div>
             <div class="ct-step-name">Circular saw + track</div>
-            <div class="ct-step-desc">Straight rip cuts along the leg blanks for the 85° tapered sides.</div>
+            <div class="ct-step-desc">Straight rip cuts to prepare oversized lumber blanks before shaping.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">JOINERY</div>
-            <div class="ct-step-name">Pocket hole jig</div>
-            <div class="ct-step-desc">Kreg jig for attaching apron to legs — fast, strong, and invisible from above.</div>
+            <div class="ct-step-name">Cordless drill</div>
+            <div class="ct-step-desc">Used to pre-drill, countersink, and drive screws through concealed wood blocking during assembly.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">FINISHING</div>
-            <div class="ct-step-name">Electric sander</div>
-            <div class="ct-step-desc">80 → 120 → 220 grit progression on all faces, curves sanded with PVC pipe wrapped in sandpaper.</div>
+            <div class="ct-step-name">Orbital sander</div>
+            <div class="ct-step-desc">Progressive sanding from 80 → 120 → 220 grit on all surfaces. The curved profiles were shaped and refined by hand to achieve a smooth, consistent finish.</div>
           </div>
           <div class="ct-step-card">
             <div class="ct-step-num">DRILLING</div>
             <div class="ct-step-name">Cordless drill</div>
-            <div class="ct-step-desc">Pilot holes, pocket screws, and hardware installation.</div>
+            <div class="ct-step-desc">Used throughout assembly for pilot holes, fastening hidden wood blocks, and attaching the tabletop.</div>
           </div>
         </div>
 

@@ -832,6 +832,7 @@ const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
 const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along screw axis
+const LEG_SCREW_PULLOUT = 0.05; // extra distance for arch-attachment screws, along screw axis
 
 function smoothstep(edge0, edge1, x) {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
@@ -1247,6 +1248,25 @@ loader.load(
       return best;
     }
 
+    // Determines whether a screw (by its world centroid) sits nearest an
+    // arch mesh or a middle-post mesh — used to identify which leg screws
+    // are fastening into an arch's bottom hole (as opposed to fastening a
+    // scrap block into the post), so only the arch-attachment screws get
+    // the phase-2 pull-out motion.
+    function nearestLegPartLabel(centroid) {
+      let bestDist = Infinity, label = null;
+      const check = (arr, lbl) => {
+        arr.forEach((m) => {
+          const d = centroid.distanceToSquared(worldCentroid(m));
+          if (d < bestDist) { bestDist = d; label = lbl; }
+        });
+      };
+      check(rightLeanMeshes, 'arch');
+      check(leftLeanMeshes, 'arch');
+      check(middleMeshes, 'post');
+      return label;
+    }
+
     // Tabletop: rises in phase 1, holds in phase 2.
     // (0, EXPLODE_TOP, 0) is invariant under Y-rotation, but we still run it
     // through toLocalDir for consistency — it's a no-op here, and it means
@@ -1366,6 +1386,21 @@ loader.load(
         // best.phase1Offset / phase2Offset are already local.
         p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
         p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+
+        // Arch-attachment screws (seated in the bottom hole of an arch, as
+        // opposed to the screws fastening a scrap block into the middle
+        // post) additionally pull out along their own shaft axis, timed to
+        // the SAME window the arch itself separates in (ARCH_PHASE_T0-T1)
+        // — so the screw visibly slides free right as its arch pulls away.
+        if (nearestLegPartLabel(c) === 'arch') {
+          const shaftMesh = pickShaftMesh(group);
+          const axis = screwAxisFromVertices(shaftMesh);
+          const dirToScrew = c.clone().sub(best.c);
+          if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
+          extraOffset = toLocalDir(axis.multiplyScalar(LEG_SCREW_PULLOUT));
+          extraT0 = ARCH_PHASE_T0;
+          extraT1 = ARCH_PHASE_T1;
+        }
       } else {
         p1Offset = new THREE.Vector3();
         p2Offset = new THREE.Vector3();

@@ -213,10 +213,10 @@ image: /assets/images/Coffee-Table-Finished.jpeg
 
   .ct-photo-grid img {
     width: 100%;
+    height: auto;
     border-radius: 6px;
     border: 1px solid #d4dece;
-    object-fit: cover;
-    aspect-ratio: 4 / 3;
+    object-fit: contain;
     display: block;
   }
 
@@ -403,7 +403,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
 
 <div class="ct-page">
 
-  <p class="ct-eyebrow">Personal Project · Summer 2025</p>
+  <p class="ct-eyebrow">Personal Project · Summer 2026</p>
   <h1 class="ct-title">Coffee Table</h1>
   <p class="ct-subtitle">
     A handmade coffee table designed from scratch in Fusion 360 and built in pine — featuring curved tapered legs and a butcher-block-style top.

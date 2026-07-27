@@ -777,7 +777,9 @@ const explodeData = []; // { mesh, baseModel, phase1Offset, phase2Offset, extraO
 const EXPLODE_TOP = 0.4;
 const EXPLODE_LEG_PHASE1 = 0.22;
 const EXPLODE_LEG_PHASE2 = 0.35;
-const ARCH_SEPARATION = 0.35;
+const ARCH_SEPARATION = 0.18; // smaller than before — just enough to read as separate pieces
+const ARCH_PHASE_T0 = 0.55; // arches only start separating once leg-splay is essentially done
+const ARCH_PHASE_T1 = 1.0;
 const TABLE_SCRAP_HOVER = 0.5;
 const LEG_SCRAP_SLIDE = 0.32;
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
@@ -1035,6 +1037,13 @@ loader.load(
         explodeData.push({ mesh, phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
       });
 
+      // Arches ride along with the leg splay (phase1Offset/phase2Offset,
+      // same as the middle post — no independent y-motion, no crossing
+      // during the splay itself). Their OWN separation from the post is
+      // deferred into extraOffset with a dedicated timing window
+      // (ARCH_PHASE_T0-T1) so it only starts once the leg splay has
+      // essentially finished — sequential, not simultaneous, which is
+      // what stops the shorter-side arches from crossing paths mid-explode.
       if (rightGroup.length) {
         const dir = groupCentroid(rightGroup).sub(middleC);
         dir.y = 0; // flatten arch separation onto the X-Z plane
@@ -1044,7 +1053,10 @@ loader.load(
           explodeData.push({
             mesh,
             phase1Offset: legSplayPhase1.clone(),
-            phase2Offset: legSplayPhase2.clone().add(archOffset),
+            phase2Offset: legSplayPhase2.clone(),
+            extraOffset: archOffset.clone(),
+            extraT0: ARCH_PHASE_T0,
+            extraT1: ARCH_PHASE_T1,
           });
         });
       }
@@ -1058,7 +1070,10 @@ loader.load(
           explodeData.push({
             mesh,
             phase1Offset: legSplayPhase1.clone(),
-            phase2Offset: legSplayPhase2.clone().add(archOffset),
+            phase2Offset: legSplayPhase2.clone(),
+            extraOffset: archOffset.clone(),
+            extraT0: ARCH_PHASE_T0,
+            extraT1: ARCH_PHASE_T1,
           });
         });
       }

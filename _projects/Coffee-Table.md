@@ -390,6 +390,58 @@ image: /assets/images/Coffee-Table-Finished.jpeg
     margin-top: 0.25rem;
   }
 
+  .ct-viewer-hint-top {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #4a6741;
+    letter-spacing: 0.05em;
+    background: #eaf1e6;
+    border: 1px solid #c0d4b8;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 0 0 0.75rem;
+    text-align: center;
+  }
+
+  .ct-viewer-controls-overlay {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ct-viewer-controls-overlay .ct-viewer-btn {
+    background: rgba(247, 249, 245, 0.9);
+    backdrop-filter: blur(2px);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .ct-explode-overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 5;
+    background: rgba(247, 249, 245, 0.9);
+    backdrop-filter: blur(2px);
+    border: 1px solid #d4dece;
+    border-radius: 6px;
+    padding: 8px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  .ct-explode-overlay label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: #7a8c6e;
+    display: block;
+    margin-bottom: 4px;
+  }
+
   @media (max-width: 640px) {
     .ct-photo-grid { grid-template-columns: 1fr; }
     .ct-step-grid { grid-template-columns: 1fr; }
@@ -466,17 +518,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <p class="ct-section-label">3D Model</p>
         <h2 class="ct-section-title">Interactive assembly viewer</h2>
 
-        <div class="ct-viewer-controls">
-            <button class="ct-viewer-btn" id="ct-btn-rotate" onclick="ctToggleRotate()">Pause rotation</button>
-            <button class="ct-viewer-btn" onclick="ctResetCamera()">Reset view</button>
-        </div>
-
-        <div style="margin-bottom: 0.5rem;">
-            <label for="ct-explode-slider" class="ct-viewer-hint" style="display:block; margin-bottom:4px;">
-            Exploded view
-            </label>
-            <input type="range" id="ct-explode-slider" min="0" max="100" value="0" style="width:100%; accent-color:#4a6741;">
-        </div>
+        <p class="ct-viewer-hint-top">Drag to orbit &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Shift+Scroll to explode &nbsp;·&nbsp; Right-drag to pan</p>
 
         <div class="ct-viewer-wrap">
           <canvas id="ct-canvas"></canvas>
@@ -484,8 +526,17 @@ image: /assets/images/Coffee-Table-Finished.jpeg
             <div class="ct-spinner"></div>
             <span>Loading model…</span>
           </div>
+
+          <div class="ct-viewer-controls-overlay">
+            <button class="ct-viewer-btn" id="ct-btn-rotate" onclick="ctToggleRotate()">Pause rotation</button>
+            <button class="ct-viewer-btn" onclick="ctResetCamera()">Reset view</button>
+          </div>
+
+          <div class="ct-explode-overlay">
+            <label for="ct-explode-slider">Exploded view</label>
+            <input type="range" id="ct-explode-slider" min="0" max="100" value="0" style="width:100%; accent-color:#4a6741;">
+          </div>
         </div>
-        <p class="ct-viewer-hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Shift+Scroll to explode &nbsp;·&nbsp; Right-drag to pan</p>
 
       </div>
     </div>

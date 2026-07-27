@@ -764,8 +764,15 @@ let defaultTarget = controls.target.clone();
 // phase-1 position; legs continue spreading further; each arch separates
 // from its middle post; leg-internal scrap connectors + their screws
 // explode out.
+//
+// IMPORTANT: every offset stored in explodeData is expressed in MODEL-LOCAL
+// space, matching baseModel (also local). This is what makes the explode
+// correct at any point in the model's continuous auto-rotation — offsets
+// are only ever combined with baseModel in local space, and the combined
+// result is converted to world space exactly once, using the model's
+// CURRENT rotation, at the end of applyExplode().
 let explodeFactor = 0;
-const explodeData = []; // { mesh, base, phase1Offset, phase2Offset }
+const explodeData = []; // { mesh, baseModel, phase1Offset, phase2Offset, extraOffset?, extraT0?, extraT1? } — all offsets in model-local space
 
 const EXPLODE_TOP = 0.4;
 const EXPLODE_LEG_PHASE1 = 0.22;
@@ -821,6 +828,16 @@ loader.load(
     scene.add(model);
     window.__ctModel = model; // temporary debug handle — remove later
     model.updateMatrixWorld(true);
+
+    // Capture the model's rotation ONCE, synchronously, before any of the
+    // classification/offset math below runs. All world-space directions
+    // computed in this block get converted into local space through this
+    // fixed snapshot, so the resulting local offsets are valid forever —
+    // independent of how much model.rotation.y drifts afterward in animate().
+    const invModelQuatAtCapture = model.quaternion.clone().invert();
+    function toLocalDir(worldDir) {
+      return worldDir.clone().applyQuaternion(invModelQuatAtCapture);
+    }
 
     const modelBox = new THREE.Box3().setFromObject(model);
     const modelCenter = modelBox.getCenter(new THREE.Vector3());
@@ -992,6 +1009,10 @@ loader.load(
 
     // Split each leg into its 3 parts: middle post stays put as the anchor,
     // left/right arches separate away from it.
+    // NOTE: dir is computed from world centroids (fine — same-instant world
+    // comparison), but the resulting offset vector is converted to LOCAL
+    // space via toLocalDir() before being stored, since it will be added
+    // to baseModel (local) inside applyExplode().
     quadrants.forEach((group) => {
       const middleGroup = group.filter((m) => middleMeshes.includes(m));
       const rightGroup  = group.filter((m) => rightLeanMeshes.includes(m));
@@ -1003,7 +1024,7 @@ loader.load(
       if (rightGroup.length) {
         const dir = groupCentroid(rightGroup).sub(middleC);
         if (dir.lengthSq() < 1e-8) dir.set(1, 0, 0); else dir.normalize();
-        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        const offset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
         rightGroup.forEach((mesh) => {
           explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
         });
@@ -1012,7 +1033,7 @@ loader.load(
       if (leftGroup.length) {
         const dir = groupCentroid(leftGroup).sub(middleC);
         if (dir.lengthSq() < 1e-8) dir.set(-1, 0, 0); else dir.normalize();
-        const offset = dir.multiplyScalar(ARCH_SEPARATION);
+        const offset = toLocalDir(dir.multiplyScalar(ARCH_SEPARATION));
         leftGroup.forEach((mesh) => {
           explodeData.push({ mesh, phase1Offset: new THREE.Vector3(), phase2Offset: offset.clone() });
         });
@@ -1098,21 +1119,25 @@ loader.load(
       return best;
     }
 
-    // Tabletop: rises in phase 1, holds in phase 2
+    // Tabletop: rises in phase 1, holds in phase 2.
+    // (0, EXPLODE_TOP, 0) is invariant under Y-rotation, but we still run it
+    // through toLocalDir for consistency — it's a no-op here, and it means
+    // this code stays correct if the model is ever rotated on other axes.
     topMeshes.forEach((mesh) => {
       explodeData.push({
         mesh,
-        phase1Offset: new THREE.Vector3(0, EXPLODE_TOP, 0),
+        phase1Offset: toLocalDir(new THREE.Vector3(0, EXPLODE_TOP, 0)),
         phase2Offset: new THREE.Vector3(0, 0, 0),
       });
     });
 
     // Table-scrap connectors: rise straight up in phase 1, hovering between
-    // the leg tops and the tabletop. Fixed direction, no per-mesh axis guessing.
+    // the leg tops and the tabletop. Stored offsets are LOCAL from here on,
+    // so anything that inherits from a scrapRef below is already local too.
     const tableScrapRefs = [];
     tableScrapMeshes.forEach((mesh) => {
       const c = worldCentroid(mesh);
-      const p1Offset = new THREE.Vector3(0, EXPLODE_TOP * TABLE_SCRAP_HOVER, 0);
+      const p1Offset = toLocalDir(new THREE.Vector3(0, EXPLODE_TOP * TABLE_SCRAP_HOVER, 0));
       const p2Offset = new THREE.Vector3(0, 0, 0);
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
       tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: true });
@@ -1125,7 +1150,7 @@ loader.load(
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
       const p1Offset = new THREE.Vector3(0, 0, 0);
-      const p2Offset = dir.multiplyScalar(LEG_SCRAP_SLIDE);
+      const p2Offset = toLocalDir(dir.multiplyScalar(LEG_SCRAP_SLIDE));
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
       legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: false });
     });
@@ -1169,21 +1194,28 @@ loader.load(
       let extraT0, extraT1;
 
       if (best && best.isTableScrap) {
+        // best.phase1Offset is already local (converted when tableScrapRefs
+        // were built), so it can be reused directly.
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
 
         // The screw's own head-to-shaft centroid vector IS its true shaft
-        // axis — measured directly from the screw's own geometry, so it's
-        // correct regardless of where on the connector face it sits.
+        // axis — measured directly from the screw's own geometry in WORLD
+        // space, so it's correct regardless of where on the connector face
+        // it sits. Sign is resolved using a same-instant world comparison
+        // (c vs best.c), which is safe since both are captured together.
         const shaftMesh = pickShaftMesh(group);
         const axis = screwAxisFromVertices(shaftMesh);
         const dirToScrew = c.clone().sub(best.c);
         if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
 
-        extraOffset = axis.multiplyScalar(TABLE_SCREW_PULLOUT);
+        // Convert the resulting world-space axis to local space before
+        // storing — this is the offset that was previously the bug.
+        extraOffset = toLocalDir(axis.multiplyScalar(TABLE_SCREW_PULLOUT));
         extraT0 = PHASE1_END;
         extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
       } else if (best) {
+        // best.phase1Offset / phase2Offset are already local.
         p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
         p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
       } else {
@@ -1240,7 +1272,10 @@ loader.load(
   }
 );
 
-// in applyExplode(), after the existing phase1/phase2 blend:
+// All offsets (phase1Offset, phase2Offset, extraOffset) are in MODEL-LOCAL
+// space, matching baseModel. They're summed entirely in local space, and
+// converted to world space exactly once via model.localToWorld — so this
+// stays correct at any rotation angle, including while auto-rotating.
 function applyExplode(factor) {
   const p1 = smoothstep(0, PHASE1_END, factor);
   const p2 = smoothstep(PHASE2_START, 1, factor);

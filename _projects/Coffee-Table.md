@@ -1103,6 +1103,51 @@ loader.load(
       return axis;
     }
 
+    // Combined-PCA helper: accumulates covariance from ONE mesh's world-space
+    // vertices, centered on that mesh's own centroid, into a shared accumulator.
+    // Centering per-mesh before combining is what lets shaft signal reinforce
+    // across screws while each screw's own head asymmetry (the actual noise
+    // source) washes out in the aggregate instead of steering the result.
+    function centeredCovarianceFromMesh(mesh, accum) {
+      const posAttr = mesh.geometry.attributes.position;
+      const n = posAttr.count;
+      const v = new THREE.Vector3();
+      const centroid = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(posAttr, i).applyMatrix4(mesh.matrixWorld);
+        centroid.add(v);
+      }
+      centroid.divideScalar(n);
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(posAttr, i).applyMatrix4(mesh.matrixWorld).sub(centroid);
+        accum.xx += v.x * v.x; accum.xy += v.x * v.y; accum.xz += v.x * v.z;
+        accum.yy += v.y * v.y; accum.yz += v.y * v.z; accum.zz += v.z * v.z;
+      }
+    }
+
+    // One shared shaft axis for ALL screws on a given connector — computed
+    // from their combined, per-screw-centered vertex clouds. This is the
+    // actual fix: instead of each screw voting on its own noisy axis, every
+    // screw on the same connector pulls out along the identical direction.
+    function computeSharedShaftAxis(groups) {
+      const accum = { xx: 0, xy: 0, xz: 0, yy: 0, yz: 0, zz: 0 };
+      groups.forEach((group) => {
+        const shaftMesh = pickShaftMesh(group);
+        centeredCovarianceFromMesh(shaftMesh, accum);
+      });
+
+      let axis = new THREE.Vector3(1, 1, 1).normalize();
+      for (let iter = 0; iter < 25; iter++) {
+        const nx = accum.xx * axis.x + accum.xy * axis.y + accum.xz * axis.z;
+        const ny = accum.xy * axis.x + accum.yy * axis.y + accum.yz * axis.z;
+        const nz = accum.xz * axis.x + accum.yz * axis.y + accum.zz * axis.z;
+        axis.set(nx, ny, nz);
+        if (axis.lengthSq() < 1e-20) return null; // degenerate — caller should skip
+        axis.normalize();
+      }
+      return axis;
+    }
+
     // Picks the most rod-like submesh in a screw group (highest long/mid
     // bounding-box aspect ratio) to derive the axis from — a head, washer,
     // or Phillips-cross shape has no reliable long axis, but the shaft does.
@@ -1185,6 +1230,31 @@ loader.load(
       }
     });
 
+    // One shared pull-out axis per table-scrap connector, not per screw.
+    // Sign is resolved once too, from the AVERAGE screw position relative
+    // to the connector — a much steadier signal than any single screw's
+    // short, easily-flipped dirToScrew vector.
+    const connectorAxis = new Map(); // connectorRef -> world-space unit axis
+    screwsByConnector.forEach((groups, connector) => {
+      if (!connector.isTableScrap) return; // leg screws don't use an explicit axis
+      const axis = computeSharedShaftAxis(groups);
+      if (!axis) return;
+
+      const avgScrewCentroid = new THREE.Vector3();
+      groups.forEach((group) => {
+        const gc = new THREE.Vector3();
+        group.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(group.length);
+        avgScrewCentroid.add(gc);
+      });
+      avgScrewCentroid.divideScalar(groups.length);
+
+      const dirToScrews = avgScrewCentroid.clone().sub(connector.c);
+      if (dirToScrews.lengthSq() > 1e-10 && axis.dot(dirToScrews) < 0) axis.negate();
+
+      connectorAxis.set(connector, axis);
+    });
+
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const { best, c } = screwInfo.get(group) || {};
@@ -1199,21 +1269,16 @@ loader.load(
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
 
-        // The screw's own head-to-shaft centroid vector IS its true shaft
-        // axis — measured directly from the screw's own geometry in WORLD
-        // space, so it's correct regardless of where on the connector face
-        // it sits. Sign is resolved using a same-instant world comparison
-        // (c vs best.c), which is safe since both are captured together.
-        const shaftMesh = pickShaftMesh(group);
-        const axis = screwAxisFromVertices(shaftMesh);
-        const dirToScrew = c.clone().sub(best.c);
-        if (dirToScrew.lengthSq() > 1e-10 && axis.dot(dirToScrew) < 0) axis.negate();
-
-        // Convert the resulting world-space axis to local space before
-        // storing — this is the offset that was previously the bug.
-        extraOffset = toLocalDir(axis.multiplyScalar(TABLE_SCREW_PULLOUT));
-        extraT0 = PHASE1_END;
-        extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
+        // Shared axis for this connector — same direction for every screw
+        // on it, computed once in the connectorAxis pass above instead of
+        // per-screw. Removes the per-screw PCA noise that was causing
+        // scattered, non-parallel pull-out directions.
+        const axis = connectorAxis.get(best);
+        if (axis) {
+          extraOffset = toLocalDir(axis.clone().multiplyScalar(TABLE_SCREW_PULLOUT));
+          extraT0 = PHASE1_END;
+          extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
+        }
       } else if (best) {
         // best.phase1Offset / phase2Offset are already local.
         p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);

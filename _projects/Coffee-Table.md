@@ -641,7 +641,6 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <p class="ct-section-label">Final result</p>
         <h2 class="ct-section-title">Complete and stained</h2>
         <div class="ct-body">
-          <p>The completed table was sanded to 220 grit across all surfaces before stain application. The butcher block top and pine legs take the stain differently — the top shows a tighter, more uniform grain while the legs show more character variation. The overall aesthetic reads warm and handmade without looking rough.</p>
         </div>
 
         <div class="ct-photo-grid">

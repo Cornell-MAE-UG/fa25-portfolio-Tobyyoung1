@@ -883,41 +883,12 @@ loader.load(
     }
     classify(model);
 
-    // Pair up head/shaft halves by nearest-neighbor centroid distance.
-    {
-      const centroids = rawScrewGroups.map((g) => {
-        const c = new THREE.Vector3();
-        g.forEach((m) => c.add(worldCentroid(m)));
-        return c.divideScalar(g.length);
-      });
-      const used = new Set();
-      rawScrewGroups.forEach((g, i) => {
-        if (used.has(i)) return;
-        let best = -1, bestDist = Infinity;
-        rawScrewGroups.forEach((g2, j) => {
-          if (j === i || used.has(j)) return;
-          const d = centroids[i].distanceTo(centroids[j]);
-          if (d < bestDist) { bestDist = d; best = j; }
-        });
-        // Tune this threshold — your own log's "NON-SCREW MESH NEAR A
-        // SCREW" distances (0.008–0.03) show genuine pairs sit well
-        // under 0.05.
-        if (best !== -1 && bestDist < 0.05) {
-          const merged = [...rawScrewGroups[i], ...rawScrewGroups[best]];
-          screwGroups.push(merged);
-          screwMeshes.push(...merged);
-          used.add(i); used.add(best);
-        } else {
-          screwGroups.push(rawScrewGroups[i]);
-          screwMeshes.push(...rawScrewGroups[i]);
-        }
-      });
-      console.log(
-        'Paired screw groups:', screwGroups.length,
-        '— avg meshes/group:', (screwMeshes.length / screwGroups.length).toFixed(2),
-        '(target ≈ 2.00)'
-      );
-    }
+    // No pairing needed — confirmed each 91420A node is already one
+    // complete screw mesh (1080 nodes = 1080 screws, avg 1.00 mesh/group).
+    rawScrewGroups.forEach((g) => {
+      screwGroups.push(g);
+      screwMeshes.push(...g);
+    });
 
     // DIAGNOSTIC — find non-screw meshes sitting suspiciously close to a
     // are visually part of a screw but aren't named with "91420A", so they

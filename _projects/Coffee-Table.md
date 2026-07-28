@@ -1081,6 +1081,12 @@ loader.load(
     const legArchGroups = []; // { meshes, legSplayPhase1, legSplayPhase2, archOffset }
     const meshToArchGroup = new Map(); // arch mesh -> its legArchGroups entry
 
+    // Track the 2 top-of-leg scrap connectors per leg so they can ride along
+    // with the whole-leg splay in phase 1, instead of waiting for phase 2
+    // like the other leg-internal scraps.
+    const topLegScrapMeshesSet = new Set();
+    const topLegScrapSplay = new Map(); // mesh -> { phase1Offset, phase2Offset }
+
     // Split each leg into its 3 parts: middle post stays put as the anchor,
     // left/right arches separate away from it.
     // NOTE: dir is computed from world centroids (fine — same-instant world
@@ -1102,6 +1108,16 @@ loader.load(
       const legSplayDir = meshQuadrantDir.get(group[0]) || new THREE.Vector3(1, 0, 0);
       const legSplayPhase1 = toLocalDir(legSplayDir.clone().multiplyScalar(EXPLODE_LEG_PHASE1));
       const legSplayPhase2 = toLocalDir(legSplayDir.clone().multiplyScalar(EXPLODE_LEG_PHASE2));
+
+      // Top-of-leg scrap connectors (2 per leg, 8 total): slide out with
+      // the rest of the leg during phase 1, same motion as the middle post.
+      const groupLegScrap = group.filter((m) => legScrapMeshes.includes(m));
+      groupLegScrap.sort((a, b) => worldCentroid(b).y - worldCentroid(a).y);
+      groupLegScrap.slice(0, 2).forEach((mesh) => {
+        topLegScrapMeshesSet.add(mesh);
+        topLegScrapSplay.set(mesh, { phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
+        explodeData.push({ mesh, phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
+      });
 
       // Middle post: only the whole-leg splay, nothing else — no arch-style
       // offset, no Y component, so it moves straight outward on the X-Z plane.
@@ -1327,6 +1343,15 @@ loader.load(
     const legScrapRefs = [];
     legScrapMeshes.forEach((mesh) => {
       const c = worldCentroid(mesh);
+
+      if (topLegScrapMeshesSet.has(mesh)) {
+        // Already pushed to explodeData in the quadrants loop with the
+        // leg-splay motion — just register it here for screw lookup.
+        const splay = topLegScrapSplay.get(mesh);
+        legScrapRefs.push({ c, phase1Offset: splay.phase1Offset, phase2Offset: splay.phase2Offset, isTableScrap: false });
+        return;
+      }
+
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
       const p1Offset = new THREE.Vector3(0, 0, 0);

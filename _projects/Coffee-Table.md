@@ -956,23 +956,37 @@ loader.load(
       screwMeshes.push(...g);
     });
 
-    // DIAGNOSTIC — find non-screw meshes sitting suspiciously close to a
-    // are visually part of a screw but aren't named with "91420A", so they
-    // never enter screwGroups and instead get shoved by the generic leg
-    // offset — which is what causes them to visually "explode away" from
-    // their own screw's shaft.
-    allModelMeshes.forEach((m) => {
-      if (m.name.includes('91420A')) return;
+    // Some screw shafts are misclassified during classify() — their node
+    // name apparently contains "Scrap" as a path segment, so they get swept
+    // into legScrapMeshes even though they are visually the shaft of a
+    // screw whose HEAD is correctly classified via '91420A'. Reassign any
+    // such mesh into its nearest screw group so head+shaft move as one
+    // rigid unit, AND so pickShaftMesh/computeSharedShaftAxis has the real
+    // elongated shaft geometry to derive a correct, consistent pull-out
+    // axis from — previously it was forced to run PCA on the head alone,
+    // which has no reliable long axis and produced wrong/noisy directions.
+    const reassignedShafts = new Set();
+    legScrapMeshes.forEach((m) => {
       const c = worldCentroid(m);
-      let nearest = Infinity, nearestName = '';
+      let nearestGroup = null, nearestDist = Infinity;
       screwGroups.forEach((g) => {
         g.forEach((sm) => {
           const d = c.distanceTo(worldCentroid(sm));
-          if (d < nearest) { nearest = d; nearestName = sm.name; }
+          if (d < nearestDist) { nearestDist = d; nearestGroup = g; }
         });
       });
-      if (nearest < 0.05) console.log('NON-SCREW MESH NEAR A SCREW:', m.name, 'dist:', nearest.toFixed(4), 'near', nearestName);
+      if (nearestGroup && nearestDist < 0.05) {
+        nearestGroup.push(m);
+        screwMeshes.push(m);
+        reassignedShafts.add(m);
+      }
     });
+    if (reassignedShafts.size) {
+      const remaining = legScrapMeshes.filter((m) => !reassignedShafts.has(m));
+      legScrapMeshes.length = 0;
+      legScrapMeshes.push(...remaining);
+    }
+    console.log('Reassigned', reassignedShafts.size, 'misclassified shaft meshes from legScrapMeshes into their screw groups');
 
     // Find any screw group that looks abnormal: either way too spread out
     const groups = []; // rebuild groups the same way classify() does, using window.__ctModel

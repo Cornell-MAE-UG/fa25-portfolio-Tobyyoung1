@@ -900,6 +900,7 @@ loader.load(
     const topMeshes = [];
     const tableScrapMeshes = [];   // "Arch to Arch to Table Scrap"
     const legScrapMeshes = [];     // "Scrap connector"
+    const legScrapGroups = [];     // meshes grouped by physical connector instance (parent node) — same pattern as rawScrewGroups
     const middleMeshes = [];
     const rightLeanMeshes = [];
     const leftLeanMeshes = [];
@@ -928,7 +929,14 @@ loader.load(
         collectMeshes(node, tableScrapMeshes);
         return;
       } else if (node.name.includes('Scrap')) {
-        collectMeshes(node, legScrapMeshes);
+        // A single physical connector can be made of multiple submeshes.
+        // Collect this node's meshes as one group (legScrapGroups) AND
+        // flatten into legScrapMeshes for everywhere downstream that still
+        // expects a flat list.
+        const group = [];
+        collectMeshes(node, group);
+        legScrapMeshes.push(...group);
+        legScrapGroups.push(group);
         return;
       } else if (node.name.includes('91420A')) {
         // Each 91420A node is only HALF a screw (head or shaft) — collect
@@ -1089,6 +1097,12 @@ loader.load(
     const topLegScrapMeshesSet = new Set();
     const topLegScrapSplay = new Map(); // mesh -> { phase1Offset, phase2Offset }
 
+    // Map each leg-scrap mesh to its physical connector-instance group, so
+    // "top 2 connectors per leg" selects by connector instance rather than
+    // by individual submesh.
+    const meshToScrapGroup = new Map();
+    legScrapGroups.forEach((g) => { g.forEach((m) => meshToScrapGroup.set(m, g)); });
+
     // Split each leg into its 3 parts: middle post stays put as the anchor,
     // left/right arches separate away from it.
     // NOTE: dir is computed from world centroids (fine — same-instant world
@@ -1117,29 +1131,41 @@ loader.load(
       // that outward motion and separate from each other — one heading
       // toward the right arch's side, one toward the left — mirroring how
       // the arches themselves split apart. Never any Y motion.
-      const groupLegScrap = group.filter((m) => legScrapMeshes.includes(m));
-      groupLegScrap.sort((a, b) => worldCentroid(b).y - worldCentroid(a).y);
-      groupLegScrap.slice(0, 2).forEach((mesh) => {
-        topLegScrapMeshesSet.add(mesh);
-
-        // Direction from the middle post toward this scrap's side (right
-        // or left arch) — computed fresh per-scrap from its own position,
-        // same pattern used for the arches' own separation direction.
-        const scrapDir = worldCentroid(mesh).clone().sub(middleC);
+      //
+      // Selection is done by connector INSTANCE (group), not by individual
+      // submesh — a connector made of multiple submeshes now moves as one
+      // rigid unit, fixing the earlier bug where only the topmost submesh
+      // of each connector was selected and moved correctly.
+      const legScrapMeshesInQuadrant = group.filter((m) => legScrapMeshes.includes(m));
+      const groupsInQuadrant = new Set();
+      legScrapMeshesInQuadrant.forEach((m) => {
+        const g = meshToScrapGroup.get(m);
+        if (g) groupsInQuadrant.add(g);
+      });
+      const scrapGroupsWithY = Array.from(groupsInQuadrant).map((g) => ({ g, c: groupCentroid(g) }));
+      scrapGroupsWithY.sort((a, b) => b.c.y - a.c.y);
+      scrapGroupsWithY.slice(0, 2).forEach(({ g, c }) => {
+        // Direction from the middle post toward this connector's side
+        // (right or left arch) — computed once per connector instance from
+        // its centroid, so every submesh in the group shares one direction.
+        const scrapDir = c.clone().sub(middleC);
         scrapDir.y = 0;
         if (scrapDir.lengthSq() < 1e-8) scrapDir.set(1, 0, 0); else scrapDir.normalize();
 
         // Retrace part of the phase-1 outward splay, plus separate away
-        // from the leg toward this scrap's matched arch side. Both terms
-        // are already flattened to the X-Z plane (y = 0).
+        // from the leg toward this connector's matched arch side. Both
+        // terms are already flattened to the X-Z plane (y = 0).
         const scrapPhase2 = legSplayDir.clone().multiplyScalar(-SCRAP_RETRACE_DIST)
           .add(scrapDir.clone().multiplyScalar(SCRAP_TOP_SEPARATION));
 
         const p1Offset = legSplayPhase1.clone();
         const p2Offset = toLocalDir(scrapPhase2);
 
-        topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-        explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+        g.forEach((mesh) => {
+          topLegScrapMeshesSet.add(mesh);
+          topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+          explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+        });
       });
 
       // Middle post: only the whole-leg splay, nothing else — no arch-style

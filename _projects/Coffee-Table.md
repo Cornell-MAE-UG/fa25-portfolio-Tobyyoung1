@@ -956,37 +956,41 @@ loader.load(
       screwMeshes.push(...g);
     });
 
-    // Some screw shafts are misclassified during classify() — their node
-    // name apparently contains "Scrap" as a path segment, so they get swept
-    // into legScrapMeshes even though they are visually the shaft of a
-    // screw whose HEAD is correctly classified via '91420A'. Reassign any
-    // such mesh into its nearest screw group so head+shaft move as one
-    // rigid unit, AND so pickShaftMesh/computeSharedShaftAxis has the real
-    // elongated shaft geometry to derive a correct, consistent pull-out
-    // axis from — previously it was forced to run PCA on the head alone,
-    // which has no reliable long axis and produced wrong/noisy directions.
-    const reassignedShafts = new Set();
+    // DIAGNOSTIC ONLY — no mutation. The previous version of this block
+    // reassigned any legScrapMesh within 0.05 of a screw into that screw's
+    // group, on the guess that it was a misclassified shaft. But a genuine
+    // connector-block face is ALSO close to its own screw's head (that's
+    // where the screw enters), so proximity alone can't distinguish
+    // "this is a shaft" from "this is the block face the screw is driven
+    // into" — and the console counts (32 of 64 legScrapMeshes reassigned)
+    // confirm it grabbed a mix of both. Logging real names/parent
+    // names/shapes here instead, so the actual rule can come from evidence.
+    const legScrapNearScrew = [];
     legScrapMeshes.forEach((m) => {
       const c = worldCentroid(m);
-      let nearestGroup = null, nearestDist = Infinity;
+      let nearestDist = Infinity, nearestName = '';
       screwGroups.forEach((g) => {
         g.forEach((sm) => {
           const d = c.distanceTo(worldCentroid(sm));
-          if (d < nearestDist) { nearestDist = d; nearestGroup = g; }
+          if (d < nearestDist) { nearestDist = d; nearestName = sm.name; }
         });
       });
-      if (nearestGroup && nearestDist < 0.05) {
-        nearestGroup.push(m);
-        screwMeshes.push(m);
-        reassignedShafts.add(m);
+      if (nearestDist < 0.08) {
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        const s = new THREE.Vector3();
+        m.geometry.boundingBox.getSize(s);
+        const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
+        legScrapNearScrew.push({
+          name: m.name,
+          parentName: m.parent ? m.parent.name : null,
+          dist: Number(nearestDist.toFixed(4)),
+          nearestScrewName: nearestName,
+          bboxDims: dims.map((d) => Number(d.toFixed(4))),
+          aspectRatio: Number((dims[2] / Math.max(dims[1], 1e-6)).toFixed(2)),
+        });
       }
     });
-    if (reassignedShafts.size) {
-      const remaining = legScrapMeshes.filter((m) => !reassignedShafts.has(m));
-      legScrapMeshes.length = 0;
-      legScrapMeshes.push(...remaining);
-    }
-    console.log('Reassigned', reassignedShafts.size, 'misclassified shaft meshes from legScrapMeshes into their screw groups');
+    console.log('legScrapMeshes within 0.08 of a screw (candidates — inspect name/aspectRatio to tell shaft from block-face):', legScrapNearScrew);
 
     // Find any screw group that looks abnormal: either way too spread out
     const groups = []; // rebuild groups the same way classify() does, using window.__ctModel

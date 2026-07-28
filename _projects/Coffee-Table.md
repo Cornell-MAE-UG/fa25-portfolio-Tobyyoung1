@@ -828,6 +828,8 @@ const ARCH_PHASE_T0 = 0.55; // arches only start separating once leg-splay is es
 const ARCH_PHASE_T1 = 1.0;
 const TABLE_SCRAP_HOVER = 0.5;
 const LEG_SCRAP_SLIDE = 0.32;
+const SCRAP_RETRACE_DIST = 0.1; // top-leg scraps retrace part of their phase-1 outward splay during phase 2
+const SCRAP_TOP_SEPARATION = 0.16; // top-leg scraps separate toward their matched arch side, mirroring the arch split
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
@@ -1110,13 +1112,34 @@ loader.load(
       const legSplayPhase2 = toLocalDir(legSplayDir.clone().multiplyScalar(EXPLODE_LEG_PHASE2));
 
       // Top-of-leg scrap connectors (2 per leg, 8 total): slide out with
-      // the rest of the leg during phase 1, same motion as the middle post.
+      // the rest of the leg during phase 1 (same whole-leg splay as the
+      // middle post, X-Z plane only). During phase 2 they retrace part of
+      // that outward motion and separate from each other — one heading
+      // toward the right arch's side, one toward the left — mirroring how
+      // the arches themselves split apart. Never any Y motion.
       const groupLegScrap = group.filter((m) => legScrapMeshes.includes(m));
       groupLegScrap.sort((a, b) => worldCentroid(b).y - worldCentroid(a).y);
       groupLegScrap.slice(0, 2).forEach((mesh) => {
         topLegScrapMeshesSet.add(mesh);
-        topLegScrapSplay.set(mesh, { phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
-        explodeData.push({ mesh, phase1Offset: legSplayPhase1.clone(), phase2Offset: legSplayPhase2.clone() });
+
+        // Direction from the middle post toward this scrap's side (right
+        // or left arch) — computed fresh per-scrap from its own position,
+        // same pattern used for the arches' own separation direction.
+        const scrapDir = worldCentroid(mesh).clone().sub(middleC);
+        scrapDir.y = 0;
+        if (scrapDir.lengthSq() < 1e-8) scrapDir.set(1, 0, 0); else scrapDir.normalize();
+
+        // Retrace part of the phase-1 outward splay, plus separate away
+        // from the leg toward this scrap's matched arch side. Both terms
+        // are already flattened to the X-Z plane (y = 0).
+        const scrapPhase2 = legSplayDir.clone().multiplyScalar(-SCRAP_RETRACE_DIST)
+          .add(scrapDir.clone().multiplyScalar(SCRAP_TOP_SEPARATION));
+
+        const p1Offset = legSplayPhase1.clone();
+        const p2Offset = toLocalDir(scrapPhase2);
+
+        topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+        explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
       });
 
       // Middle post: only the whole-leg splay, nothing else — no arch-style

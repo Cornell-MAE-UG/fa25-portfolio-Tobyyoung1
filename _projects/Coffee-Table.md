@@ -830,7 +830,7 @@ const TABLE_SCRAP_HOVER = 0.5;
 const LEG_SCRAP_SLIDE = 0.32;
 const SCRAP_RETRACE_DIST = 0.1; // top-leg scraps retrace part of their phase-1 outward splay during phase 2
 const SCRAP_TOP_SEPARATION = 0.16; // top-leg scraps separate toward their matched arch side, mirroring the arch split
-const SCRAP_CLUSTER_DIST = 0.03; // meshes closer than this (world units, post-scale) are treated as one physical scrap connector
+const SCRAP_CLUSTER_GAP = 0.006; // max surface-to-surface gap (world units, post-scale) for two scrap meshes to count as touching/one connector
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
@@ -1146,7 +1146,17 @@ loader.load(
       // physical block moving together as one rigid unit, instead of
       // splitting apart when neighboring submeshes land on opposite sides
       // of a per-mesh arch-distance tiebreak.
-      const scrapCentroids = legScrapMeshesInQuadrant.map((m) => worldCentroid(m));
+      // Box-to-box gap: 0 (or negative) if the boxes overlap/touch on every
+      // axis, otherwise the actual 3D distance between the nearest faces.
+      function boxGap(boxA, boxB) {
+        const dx = Math.max(boxA.min.x - boxB.max.x, boxB.min.x - boxA.max.x, 0);
+        const dy = Math.max(boxA.min.y - boxB.max.y, boxB.min.y - boxA.max.y, 0);
+        const dz = Math.max(boxA.min.z - boxB.max.z, boxB.min.z - boxA.max.z, 0);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+      }
+
+      const scrapWorldBoxes = legScrapMeshesInQuadrant.map((m) => new THREE.Box3().setFromObject(m));
+      const scrapCentroids = scrapWorldBoxes.map((b) => b.getCenter(new THREE.Vector3()));
       const scrapClusterParent = legScrapMeshesInQuadrant.map((_, i) => i);
       function findScrapCluster(i) {
         while (scrapClusterParent[i] !== i) {
@@ -1157,7 +1167,7 @@ loader.load(
       }
       for (let i = 0; i < legScrapMeshesInQuadrant.length; i++) {
         for (let j = i + 1; j < legScrapMeshesInQuadrant.length; j++) {
-          if (scrapCentroids[i].distanceTo(scrapCentroids[j]) < SCRAP_CLUSTER_DIST) {
+          if (boxGap(scrapWorldBoxes[i], scrapWorldBoxes[j]) < SCRAP_CLUSTER_GAP) {
             const ri = findScrapCluster(i), rj = findScrapCluster(j);
             if (ri !== rj) scrapClusterParent[ri] = rj;
           }

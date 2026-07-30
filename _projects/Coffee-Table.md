@@ -480,7 +480,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
         <span class="ct-acc-num">01</span>
         <span>
           <span class="ct-acc-title">Design</span>
-          <span class="ct-acc-meta">Leg geometry, CAD modelling, and drawings</span>
+          <span class="ct-acc-meta">Leg geometry, CAD modeling, and drawings</span>
         </span>
         <svg class="ct-acc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75">
           <path d="M3 6l5 5 5-5"/>
@@ -1144,6 +1144,22 @@ loader.load(
       });
       const scrapGroupsWithY = Array.from(groupsInQuadrant).map((g) => ({ g, c: groupCentroid(g) }));
       scrapGroupsWithY.sort((a, b) => b.c.y - a.c.y);
+
+      // DIAGNOSTIC — log every physical scrap-connector instance in this
+      // quadrant (leg) before we decide how many of them are "top"
+      // connectors. slice(0, 2) below assumes exactly 2 instances per leg
+      // need the new splay behavior — if there are more than 2, or if a
+      // single instance's submeshes span a wide Y range, this assumption
+      // is likely what's leaving "the rest" of each scrap on old behavior.
+      console.log(
+        `Leg quadrant scrap groups (${scrapGroupsWithY.length} instances):`,
+        scrapGroupsWithY.map(({ g, c }) => ({
+          meshCount: g.length,
+          meshNames: g.map((m) => m.name),
+          centroidY: Number(c.y.toFixed(4)),
+        }))
+      );
+
       scrapGroupsWithY.slice(0, 2).forEach(({ g, c }) => {
         // Direction from the middle post toward this connector's side
         // (right or left arch) — computed once per connector instance from

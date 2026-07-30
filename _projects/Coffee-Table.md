@@ -1706,8 +1706,12 @@ loader.load(
             extraOffset = toLocalDir(chosenAxis.multiplyScalar(LEG_SCREW_PULLOUT));
             extraT0 = PHASE2_START;
             extraT1 = 1.0;
-          }
-      } else {
+          }          // closes if (best.radialDir)
+
+        }            // closes else { ... post-attachment screw }
+
+      } else {       // closes else if (best)
+
         p1Offset = new THREE.Vector3();
         p2Offset = new THREE.Vector3();
       }

@@ -1502,16 +1502,26 @@ loader.load(
         // Already pushed to explodeData in the quadrants loop with the
         // leg-splay motion — just register it here for screw lookup.
         const splay = topLegScrapSplay.get(mesh);
-        legScrapRefs.push({ c, phase1Offset: splay.phase1Offset, phase2Offset: splay.phase2Offset, isTableScrap: false });
+        const radialDir = (meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0)).clone();
+        radialDir.y = 0;
+        if (radialDir.lengthSq() > 1e-10) radialDir.normalize();
+        legScrapRefs.push({ c, phase1Offset: splay.phase1Offset, phase2Offset: splay.phase2Offset, isTableScrap: false, radialDir });
         return;
       }
 
       const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
       const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
-      const p1Offset = new THREE.Vector3(0, 0, 0);
+      // Phase 1: move with the rest of the leg (whole-leg splay, same as
+      // the middle post) instead of staying at zero — the connector and
+      // its screws should ride along in phase 1, only separating on their
+      // own in phase 2.
+      const p1Offset = toLocalDir(outDir.clone().multiplyScalar(EXPLODE_LEG_PHASE1));
       const p2Offset = toLocalDir(dir.multiplyScalar(LEG_SCRAP_SLIDE));
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-      legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: false });
+      const radialDir = outDir.clone();
+      radialDir.y = 0;
+      if (radialDir.lengthSq() > 1e-10) radialDir.normalize();
+      legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: false, radialDir });
     });
 
     // Screws inherit their nearest connector's offset. Table-top screws ride
@@ -1662,25 +1672,41 @@ loader.load(
           p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
           p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
 
-          const shaftMesh = pickShaftMesh(group);
-          const ownAxis = screwAxisFromVertices(shaftMesh);
-          ownAxis.y = 0; // flatten to X-Z plane, per evidence
+          // A single screw's own PCA axis is too noisy to trust directly —
+          // same failure mode as the table-screw confetti: too little
+          // vertex signal for a stable dominant eigenvector. Instead, use
+          // two known, deterministic directions (radial = out of the leg,
+          // tangential = perpendicular, both in the X-Z plane) and use the
+          // noisy PCA only to CLASSIFY which one this screw belongs to.
+          if (best.radialDir && best.radialDir.lengthSq() > 1e-10) {
+            const radialAxis = best.radialDir.clone();
+            const tangentAxis = new THREE.Vector3(-radialAxis.z, 0, radialAxis.x);
 
-          if (ownAxis.lengthSq() > 1e-10) {
-            ownAxis.normalize();
+            const shaftMesh = pickShaftMesh(group);
+            const rawAxis = screwAxisFromVertices(shaftMesh);
+            rawAxis.y = 0;
+
+            let chosenAxis;
+            if (rawAxis.lengthSq() > 1e-10) {
+              rawAxis.normalize();
+              chosenAxis = Math.abs(rawAxis.dot(radialAxis)) >= Math.abs(rawAxis.dot(tangentAxis))
+                ? radialAxis.clone()
+                : tangentAxis.clone();
+            } else {
+              chosenAxis = radialAxis.clone(); // fallback if PCA degenerates entirely
+            }
 
             // Resolve sign from THIS screw's own centroid relative to the
             // connector — not a connector-average, since the two post
             // screws point different ways and averaging would wash that out.
             const dirToScrew = c.clone().sub(best.c);
             dirToScrew.y = 0;
-            if (dirToScrew.lengthSq() > 1e-10 && ownAxis.dot(dirToScrew) < 0) ownAxis.negate();
+            if (dirToScrew.lengthSq() > 1e-10 && chosenAxis.dot(dirToScrew) < 0) chosenAxis.negate();
 
-            extraOffset = toLocalDir(ownAxis.multiplyScalar(LEG_SCREW_PULLOUT));
+            extraOffset = toLocalDir(chosenAxis.multiplyScalar(LEG_SCREW_PULLOUT));
             extraT0 = PHASE2_START;
             extraT1 = 1.0;
           }
-        }
       } else {
         p1Offset = new THREE.Vector3();
         p2Offset = new THREE.Vector3();

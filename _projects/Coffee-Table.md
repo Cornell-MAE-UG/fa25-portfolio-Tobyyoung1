@@ -1652,9 +1652,34 @@ loader.load(
           extraT1 = ARCH_PHASE_T1;
         } else {
           // Post-attachment screw (fastens a scrap block into the middle
-          // post) — unchanged, follows its connector's own offset.
+          // post). Each screw gets its OWN pullout axis — no sharing
+          // between the two screws on a connector, since evidence showed
+          // they're driven in at different angles (roughly orthogonal to
+          // each other in the X-Z plane). Phase 1: unchanged, follows the
+          // connector's leg-splay motion. Phase 2: pulls out along its own
+          // shaft axis (flattened to X-Z), starting as soon as phase 2
+          // begins — it isn't waiting on an arch to clear out first.
           p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
           p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+
+          const shaftMesh = pickShaftMesh(group);
+          const ownAxis = screwAxisFromVertices(shaftMesh);
+          ownAxis.y = 0; // flatten to X-Z plane, per evidence
+
+          if (ownAxis.lengthSq() > 1e-10) {
+            ownAxis.normalize();
+
+            // Resolve sign from THIS screw's own centroid relative to the
+            // connector — not a connector-average, since the two post
+            // screws point different ways and averaging would wash that out.
+            const dirToScrew = c.clone().sub(best.c);
+            dirToScrew.y = 0;
+            if (dirToScrew.lengthSq() > 1e-10 && ownAxis.dot(dirToScrew) < 0) ownAxis.negate();
+
+            extraOffset = toLocalDir(ownAxis.multiplyScalar(LEG_SCREW_PULLOUT));
+            extraT0 = PHASE2_START;
+            extraT1 = 1.0;
+          }
         }
       } else {
         p1Offset = new THREE.Vector3();

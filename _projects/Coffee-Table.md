@@ -830,6 +830,7 @@ const TABLE_SCRAP_HOVER = 0.5;
 const LEG_SCRAP_SLIDE = 0.32;
 const SCRAP_RETRACE_DIST = 0.1; // top-leg scraps retrace part of their phase-1 outward splay during phase 2
 const SCRAP_TOP_SEPARATION = 0.16; // top-leg scraps separate toward their matched arch side, mirroring the arch split
+const SCRAP_CLUSTER_DIST = 0.03; // meshes closer than this (world units, post-scale) are treated as one physical scrap connector
 const LEG_SCREW_FOLLOW_SCALE = 0.32;   // barely peeks out of its hole
 const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
@@ -1138,41 +1139,69 @@ loader.load(
       // of each connector was selected and moved correctly.
       const legScrapMeshesInQuadrant = group.filter((m) => legScrapMeshes.includes(m));
 
-      // Classify EVERY leg-scrap mesh in this quadrant by which arch it
-      // physically sits nearest to (right vs left) — not by a Y-height
-      // rank. Console evidence showed 16 separate single-mesh scrap pieces
-      // per leg across 6 Y-bands, not 2 grouped connector instances, so the
-      // old "top 2 by Y" selection only ever caught the highest band (2
-      // meshes) and silently left the other 14 per leg on the old
-      // post-hoc explode behavior below.
+      // Cluster leg-scrap meshes in this quadrant into physical connector
+      // instances by spatial proximity (union-find on worldCentroid
+      // distance), THEN classify+direction each cluster as a whole — not
+      // per individual mesh. This keeps meshes belonging to the same
+      // physical block moving together as one rigid unit, instead of
+      // splitting apart when neighboring submeshes land on opposite sides
+      // of a per-mesh arch-distance tiebreak.
+      const scrapCentroids = legScrapMeshesInQuadrant.map((m) => worldCentroid(m));
+      const scrapClusterParent = legScrapMeshesInQuadrant.map((_, i) => i);
+      function findScrapCluster(i) {
+        while (scrapClusterParent[i] !== i) {
+          scrapClusterParent[i] = scrapClusterParent[scrapClusterParent[i]];
+          i = scrapClusterParent[i];
+        }
+        return i;
+      }
+      for (let i = 0; i < legScrapMeshesInQuadrant.length; i++) {
+        for (let j = i + 1; j < legScrapMeshesInQuadrant.length; j++) {
+          if (scrapCentroids[i].distanceTo(scrapCentroids[j]) < SCRAP_CLUSTER_DIST) {
+            const ri = findScrapCluster(i), rj = findScrapCluster(j);
+            if (ri !== rj) scrapClusterParent[ri] = rj;
+          }
+        }
+      }
+      const scrapClusters = new Map(); // root index -> { meshes, centroids }
+      legScrapMeshesInQuadrant.forEach((mesh, i) => {
+        const root = findScrapCluster(i);
+        if (!scrapClusters.has(root)) scrapClusters.set(root, { meshes: [], centroids: [] });
+        const entry = scrapClusters.get(root);
+        entry.meshes.push(mesh);
+        entry.centroids.push(scrapCentroids[i]);
+      });
+
       const rightC = rightGroup.length ? groupCentroid(rightGroup) : null;
       const leftC  = leftGroup.length ? groupCentroid(leftGroup) : null;
 
-      legScrapMeshesInQuadrant.forEach((mesh) => {
-        const c = worldCentroid(mesh);
+      scrapClusters.forEach(({ meshes, centroids }) => {
+        const c = new THREE.Vector3();
+        centroids.forEach((cc) => c.add(cc));
+        c.divideScalar(centroids.length);
+
         const distRight = rightC ? c.distanceToSquared(rightC) : Infinity;
         const distLeft  = leftC ? c.distanceToSquared(leftC) : Infinity;
         if (distRight === Infinity && distLeft === Infinity) return; // no arch on this leg — leave on old fallback behavior
 
-        // Direction from the middle post toward this mesh's own position —
-        // computed per mesh (not per "instance"), so it's correct even
-        // though these are 16 independent meshes rather than grouped parts.
+        // Direction from the middle post toward this CLUSTER's centroid —
+        // one shared direction applied to every mesh in the cluster, so
+        // the connector moves as a single rigid piece.
         const scrapDir = c.clone().sub(middleC);
         scrapDir.y = 0;
         if (scrapDir.lengthSq() < 1e-8) scrapDir.set(1, 0, 0); else scrapDir.normalize();
 
-        // Retrace part of the phase-1 outward splay, plus separate away
-        // from the leg toward this mesh's matched arch side. Both terms
-        // are already flattened to the X-Z plane (y = 0).
         const scrapPhase2 = legSplayDir.clone().multiplyScalar(-SCRAP_RETRACE_DIST)
           .add(scrapDir.clone().multiplyScalar(SCRAP_TOP_SEPARATION));
 
         const p1Offset = legSplayPhase1.clone();
         const p2Offset = toLocalDir(scrapPhase2);
 
-        topLegScrapMeshesSet.add(mesh);
-        topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-        explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+        meshes.forEach((mesh) => {
+          topLegScrapMeshesSet.add(mesh);
+          topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+          explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+        });
       });
 
       // Middle post: only the whole-leg splay, nothing else — no arch-style

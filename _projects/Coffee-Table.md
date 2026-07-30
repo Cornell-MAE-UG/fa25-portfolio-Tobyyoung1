@@ -1091,6 +1091,7 @@ loader.load(
     // (same fix pattern as the table-screw PCA noise issue).
     const legArchGroups = []; // { meshes, legSplayPhase1, legSplayPhase2, archOffset }
     const meshToArchGroup = new Map(); // arch mesh -> its legArchGroups entry
+    const legScrapClusterList = []; // { meshes, centroid, box } — one entry per physical scrap connector, populated below
 
     // Track the 2 top-of-leg scrap connectors per leg so they can ride along
     // with the whole-leg splay in phase 1, instead of waiting for phase 2
@@ -1173,22 +1174,30 @@ loader.load(
           }
         }
       }
-      const scrapClusters = new Map(); // root index -> { meshes, centroids }
+      const scrapClusters = new Map(); // root index -> { meshes, centroids, boxes }
       legScrapMeshesInQuadrant.forEach((mesh, i) => {
         const root = findScrapCluster(i);
-        if (!scrapClusters.has(root)) scrapClusters.set(root, { meshes: [], centroids: [] });
+        if (!scrapClusters.has(root)) scrapClusters.set(root, { meshes: [], centroids: [], boxes: [] });
         const entry = scrapClusters.get(root);
         entry.meshes.push(mesh);
         entry.centroids.push(scrapCentroids[i]);
+        entry.boxes.push(scrapWorldBoxes[i]);
       });
 
       const rightC = rightGroup.length ? groupCentroid(rightGroup) : null;
       const leftC  = leftGroup.length ? groupCentroid(leftGroup) : null;
 
-      scrapClusters.forEach(({ meshes, centroids }) => {
+      scrapClusters.forEach(({ meshes, centroids, boxes }) => {
         const c = new THREE.Vector3();
         centroids.forEach((cc) => c.add(cc));
         c.divideScalar(centroids.length);
+
+        // Register every physical cluster globally, regardless of whether
+        // it matches an arch below — this is the real, complete list of
+        // connector instances the screw diagnostic will match against.
+        const mergedBox = boxes[0].clone();
+        for (let bi = 1; bi < boxes.length; bi++) mergedBox.union(boxes[bi]);
+        legScrapClusterList.push({ meshes, centroid: c.clone(), box: mergedBox });
 
         const distRight = rightC ? c.distanceToSquared(rightC) : Infinity;
         const distLeft  = leftC ? c.distanceToSquared(leftC) : Infinity;
@@ -1267,6 +1276,56 @@ loader.load(
         });
       }
     });
+
+    // DIAGNOSTIC ONLY — no mutation. For each real leg-scrap cluster,
+    // find its nearest 2 screw groups (we expect exactly 2 screws per
+    // physical scrap connector) and log real names, parent names, shapes,
+    // and distances — same approach that worked for the table-screw
+    // matching, instead of guessing another threshold.
+    const legScrapClusterScrewCandidates = legScrapClusterList.map((cluster, idx) => {
+      const distances = screwGroups.map((group) => {
+        const gc = new THREE.Vector3();
+        group.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(group.length);
+        return { group, dist: cluster.centroid.distanceTo(gc) };
+      });
+      distances.sort((a, b) => a.dist - b.dist);
+      const nearest2 = distances.slice(0, 2);
+
+      return {
+        clusterIndex: idx,
+        clusterMeshCount: cluster.meshes.length,
+        clusterMeshNames: cluster.meshes.map((m) => m.name),
+        clusterParentNames: cluster.meshes.map((m) => (m.parent ? m.parent.name : null)),
+        clusterCentroid: cluster.centroid.toArray().map((n) => Number(n.toFixed(4))),
+        nearestScrews: nearest2.map(({ group, dist }) => {
+          let shaftMesh = group[0], bestRatio = -Infinity;
+          group.forEach((m) => {
+            if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+            const s = new THREE.Vector3();
+            m.geometry.boundingBox.getSize(s);
+            const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
+            const ratio = dims[2] / Math.max(dims[1], 1e-6);
+            if (ratio > bestRatio) { bestRatio = ratio; shaftMesh = m; }
+          });
+          const s = new THREE.Vector3();
+          shaftMesh.geometry.boundingBox.getSize(s);
+          const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
+          return {
+            screwMeshNames: group.map((m) => m.name),
+            screwParentNames: group.map((m) => (m.parent ? m.parent.name : null)),
+            meshCount: group.length,
+            dist: Number(dist.toFixed(4)),
+            shaftAspectRatio: Number((dims[2] / Math.max(dims[1], 1e-6)).toFixed(2)),
+            bboxDims: dims.map((d) => Number(d.toFixed(4))),
+          };
+        }),
+      };
+    });
+    console.log(
+      `Leg-scrap clusters: ${legScrapClusterList.length} instances — nearest 2 screws each (evidence for matching rule):`,
+      legScrapClusterScrewCandidates
+    );
 
     function principalAxisWorld(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();

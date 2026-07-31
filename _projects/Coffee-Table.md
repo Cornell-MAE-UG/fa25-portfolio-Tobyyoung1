@@ -1157,36 +1157,42 @@ loader.load(
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
       }
 
+      const rightC = rightGroup.length ? groupCentroid(rightGroup) : null;
+      const leftC  = leftGroup.length ? groupCentroid(leftGroup) : null;
+
+      // FIX: ground truth is exactly 2 physical scrap connectors per leg
+      // (right-arch-to-post, left-arch-to-post). The old box-gap union-find
+      // was meant to merge each connector's raw sub-meshes back into 1
+      // physical block, but single-linkage clustering chains — one close
+      // pair anywhere between the two real connectors merged the whole
+      // 16-mesh leg into a single blob (4 total instances instead of 8).
+      // That broke both phase-1 direction (averaged across both arches)
+      // and phase-2 axis (computeSharedShaftAxis pooling unrelated screws
+      // → degenerate axis → no pull-out). Since we now know each raw mesh
+      // belongs to whichever arch it's physically nearest, skip geometric
+      // clustering entirely and assign directly — guarantees 2 groups per
+      // leg no matter how tight the real gaps are.
       const scrapWorldBoxes = legScrapMeshesInQuadrant.map((m) => new THREE.Box3().setFromObject(m));
       const scrapCentroids = scrapWorldBoxes.map((b) => b.getCenter(new THREE.Vector3()));
-      const scrapClusterParent = legScrapMeshesInQuadrant.map((_, i) => i);
-      function findScrapCluster(i) {
-        while (scrapClusterParent[i] !== i) {
-          scrapClusterParent[i] = scrapClusterParent[scrapClusterParent[i]];
-          i = scrapClusterParent[i];
-        }
-        return i;
-      }
-      for (let i = 0; i < legScrapMeshesInQuadrant.length; i++) {
-        for (let j = i + 1; j < legScrapMeshesInQuadrant.length; j++) {
-          if (boxGap(scrapWorldBoxes[i], scrapWorldBoxes[j]) < SCRAP_CLUSTER_GAP) {
-            const ri = findScrapCluster(i), rj = findScrapCluster(j);
-            if (ri !== rj) scrapClusterParent[ri] = rj;
-          }
-        }
-      }
-      const scrapClusters = new Map(); // root index -> { meshes, centroids, boxes }
+
+      const scrapClusters = new Map(); // 'right' | 'left' -> { meshes, centroids, boxes }
       legScrapMeshesInQuadrant.forEach((mesh, i) => {
-        const root = findScrapCluster(i);
-        if (!scrapClusters.has(root)) scrapClusters.set(root, { meshes: [], centroids: [], boxes: [] });
-        const entry = scrapClusters.get(root);
+        const c = scrapCentroids[i];
+        const dR = rightC ? c.distanceToSquared(rightC) : Infinity;
+        const dL = leftC ? c.distanceToSquared(leftC) : Infinity;
+        if (dR === Infinity && dL === Infinity) return; // no arch on this leg — leave ungrouped
+        const key = dR <= dL ? 'right' : 'left';
+        if (!scrapClusters.has(key)) scrapClusters.set(key, { meshes: [], centroids: [], boxes: [] });
+        const entry = scrapClusters.get(key);
         entry.meshes.push(mesh);
-        entry.centroids.push(scrapCentroids[i]);
+        entry.centroids.push(c);
         entry.boxes.push(scrapWorldBoxes[i]);
       });
 
-      const rightC = rightGroup.length ? groupCentroid(rightGroup) : null;
-      const leftC  = leftGroup.length ? groupCentroid(leftGroup) : null;
+      console.log(
+        'Leg-scrap clusters for this leg (expect exactly 2 entries):',
+        Array.from(scrapClusters.entries()).map(([side, g]) => ({ side, meshCount: g.meshes.length }))
+      );
 
       scrapClusters.forEach(({ meshes, centroids, boxes }) => {
         const c = new THREE.Vector3();

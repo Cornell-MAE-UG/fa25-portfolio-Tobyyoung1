@@ -960,12 +960,80 @@ loader.load(
     }
     classify(model);
 
-    // No pairing needed — confirmed each 91420A node is already one
-    // complete screw mesh (1080 nodes = 1080 screws, avg 1.00 mesh/group).
-    rawScrewGroups.forEach((g) => {
-      screwGroups.push(g);
-      screwMeshes.push(...g);
+    // Physical-instance clustering — same fix pattern as the leg-scrap
+    // connectors. The earlier diagnostic only confirmed each 91420A NODE
+    // yields exactly one mesh; it never checked whether a single physical
+    // screw is actually split across MULTIPLE separate 91420A-named
+    // sibling nodes that were never nested under one parent. That's the
+    // real cause of screws fragmenting into head/shaft pieces during
+    // explode — each fragment was being treated as its own independent
+    // "screw" with its own offset/axis. Cluster by bounding-box proximity
+    // across every individual raw screw mesh (identical boxGap approach
+    // used for the scrap connectors) to merge touching fragments back
+    // into one rigid physical screw before any offset/axis math runs.
+    const SCREW_CLUSTER_GAP = 0.006; // world units, post-scale — same tolerance as SCRAP_CLUSTER_GAP
+
+    function boxGapGlobal(boxA, boxB) {
+      const dx = Math.max(boxA.min.x - boxB.max.x, boxB.min.x - boxA.max.x, 0);
+      const dy = Math.max(boxA.min.y - boxB.max.y, boxB.min.y - boxA.max.y, 0);
+      const dz = Math.max(boxA.min.z - boxB.max.z, boxB.min.z - boxA.max.z, 0);
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    const rawScrewMeshes = [];
+    rawScrewGroups.forEach((g) => rawScrewMeshes.push(...g));
+    const rawScrewBoxes = rawScrewMeshes.map((m) => new THREE.Box3().setFromObject(m));
+    const screwClusterParent = rawScrewMeshes.map((_, i) => i);
+    function findScrewCluster(i) {
+      while (screwClusterParent[i] !== i) {
+        screwClusterParent[i] = screwClusterParent[screwClusterParent[i]];
+        i = screwClusterParent[i];
+      }
+      return i;
+    }
+    for (let i = 0; i < rawScrewMeshes.length; i++) {
+      for (let j = i + 1; j < rawScrewMeshes.length; j++) {
+        if (boxGapGlobal(rawScrewBoxes[i], rawScrewBoxes[j]) < SCREW_CLUSTER_GAP) {
+          const ri = findScrewCluster(i), rj = findScrewCluster(j);
+          if (ri !== rj) screwClusterParent[ri] = rj;
+        }
+      }
+    }
+    const screwClusterMap = new Map(); // root index -> meshes[]
+    rawScrewMeshes.forEach((mesh, i) => {
+      const root = findScrewCluster(i);
+      if (!screwClusterMap.has(root)) screwClusterMap.set(root, []);
+      screwClusterMap.get(root).push(mesh);
     });
+    screwClusterMap.forEach((meshes) => {
+      screwGroups.push(meshes);
+      screwMeshes.push(...meshes);
+    });
+
+    // EVIDENCE — real names/parents per cluster, so we can confirm whether
+    // clustering actually reunited fragments (expect avg meshCount > 1 now)
+    // and spot anything suspicious: size-1 clusters (still isolated —
+    // SCREW_CLUSTER_GAP may be too small) or size-3+ clusters (possibly
+    // over-merged with a neighboring screw — gap may be too big).
+    const screwClusterSizes = new Map(); // meshCount -> instance count
+    const screwClusterSamples = { size1: [], size2: [], size3plus: [] };
+    screwClusterMap.forEach((meshes) => {
+      const n = meshes.length;
+      screwClusterSizes.set(n, (screwClusterSizes.get(n) || 0) + 1);
+      const sample = {
+        meshCount: n,
+        names: meshes.map((m) => m.name),
+        parentNames: meshes.map((m) => (m.parent ? m.parent.name : null)),
+      };
+      if (n === 1 && screwClusterSamples.size1.length < 5) screwClusterSamples.size1.push(sample);
+      else if (n === 2 && screwClusterSamples.size2.length < 5) screwClusterSamples.size2.push(sample);
+      else if (n >= 3 && screwClusterSamples.size3plus.length < 5) screwClusterSamples.size3plus.push(sample);
+    });
+    console.log(
+      `Screw clustering: ${rawScrewMeshes.length} raw meshes -> ${screwClusterMap.size} physical screw instances.`,
+      'Cluster size distribution (meshCount -> instance count):', Object.fromEntries(screwClusterSizes),
+      'Samples by size:', screwClusterSamples
+    );
 
     // DIAGNOSTIC ONLY — no mutation. The previous version of this block
     // reassigned any legScrapMesh within 0.05 of a screw into that screw's

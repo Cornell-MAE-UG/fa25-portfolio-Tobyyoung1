@@ -1471,19 +1471,55 @@ loader.load(
     // are fastening into an arch's bottom hole (as opposed to fastening a
     // scrap block into the post). Returns the SPECIFIC arch instance
     // (legArchGroups entry) it belongs to, or null if it's nearest the post.
+    // Build a reverse lookup: mesh -> its owning screw group
+    // so we can walk a screw mesh's parent chain to find a named leg part.
+    const meshToScrewGroup = new Map();
+    screwGroups.forEach((group) => {
+      group.forEach((m) => meshToScrewGroup.set(m, group));
+    });
+
+    // Walk up the scene graph from the screw mesh looking for a node whose
+    // name starts with Right, Left, or Middle — ground truth from the GLTF
+    // hierarchy, no distance math involved.
     function nearestLegPart(centroid) {
-      let bestDist = Infinity, bestMesh = null;
-      const consider = (arr) => {
-        arr.forEach((m) => {
+      // Find the screw mesh nearest this centroid (centroid is world-space
+      // average of a screw group, so pick the group's first mesh's parent chain)
+      let bestDist = Infinity, bestScrewMesh = null;
+      screwGroups.forEach((group) => {
+        group.forEach((m) => {
           const d = centroid.distanceToSquared(worldCentroid(m));
-          if (d < bestDist) { bestDist = d; bestMesh = m; }
+          if (d < bestDist) { bestDist = d; bestScrewMesh = m; }
         });
-      };
-      consider(rightLeanMeshes);
-      consider(leftLeanMeshes);
-      consider(middleMeshes);
-      if (!bestMesh) return null;
-      return meshToArchGroup.get(bestMesh) || null; // null = nearest the post
+      });
+      if (!bestScrewMesh) return null;
+
+      // Walk parent chain looking for a named leg-part node
+      let node = bestScrewMesh.parent;
+      while (node && node !== model) {
+        if (node.name && (node.name.startsWith('Right') || node.name.startsWith('Left'))) {
+          // Find the arch group this node belongs to
+          for (const archEntry of legArchGroups) {
+            if (archEntry.meshes.some((m) => m === bestScrewMesh || 
+                (m.parent && m.parent === node))) {
+              return archEntry;
+            }
+          }
+          // Name match but no arch group found — fall through to mesh lookup
+          const archMesh = rightLeanMeshes.find((m) => {
+            let p = m.parent;
+            while (p && p !== model) { if (p === node) return true; p = p.parent; }
+            return false;
+          }) || leftLeanMeshes.find((m) => {
+            let p = m.parent;
+            while (p && p !== model) { if (p === node) return true; p = p.parent; }
+            return false;
+          });
+          return archMesh ? (meshToArchGroup.get(archMesh) || null) : null;
+        }
+        if (node.name && node.name.startsWith('Middle')) return null; // confirmed post screw
+        node = node.parent;
+      }
+      return null; // no named leg part found — treat as post screw
     }
 
     // Tabletop: rises in phase 1, holds in phase 2.

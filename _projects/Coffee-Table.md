@@ -836,6 +836,7 @@ const PHASE1_END = 0.6;   // phase 1 eases out over a wider band
 const PHASE2_START = 0.4; // phase 2 eases in early, overlapping phase 1's tail
 const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along screw axis
 const LEG_SCREW_PULLOUT = 0.05; // extra distance for arch-attachment screws, along screw axis
+const LEG_SCREW_SLIDE_T1 = Math.min(PHASE2_START + 0.25, 1.0); // both leg-screw categories finish their hole-axis slide by here — a clear, early snap, not a slow drift to 1.0
 
 function smoothstep(edge0, edge1, x) {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
@@ -960,80 +961,12 @@ loader.load(
     }
     classify(model);
 
-    // Physical-instance clustering — same fix pattern as the leg-scrap
-    // connectors. The earlier diagnostic only confirmed each 91420A NODE
-    // yields exactly one mesh; it never checked whether a single physical
-    // screw is actually split across MULTIPLE separate 91420A-named
-    // sibling nodes that were never nested under one parent. That's the
-    // real cause of screws fragmenting into head/shaft pieces during
-    // explode — each fragment was being treated as its own independent
-    // "screw" with its own offset/axis. Cluster by bounding-box proximity
-    // across every individual raw screw mesh (identical boxGap approach
-    // used for the scrap connectors) to merge touching fragments back
-    // into one rigid physical screw before any offset/axis math runs.
-    const SCREW_CLUSTER_GAP = 0.006; // world units, post-scale — same tolerance as SCRAP_CLUSTER_GAP
-
-    function boxGapGlobal(boxA, boxB) {
-      const dx = Math.max(boxA.min.x - boxB.max.x, boxB.min.x - boxA.max.x, 0);
-      const dy = Math.max(boxA.min.y - boxB.max.y, boxB.min.y - boxA.max.y, 0);
-      const dz = Math.max(boxA.min.z - boxB.max.z, boxB.min.z - boxA.max.z, 0);
-      return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    const rawScrewMeshes = [];
-    rawScrewGroups.forEach((g) => rawScrewMeshes.push(...g));
-    const rawScrewBoxes = rawScrewMeshes.map((m) => new THREE.Box3().setFromObject(m));
-    const screwClusterParent = rawScrewMeshes.map((_, i) => i);
-    function findScrewCluster(i) {
-      while (screwClusterParent[i] !== i) {
-        screwClusterParent[i] = screwClusterParent[screwClusterParent[i]];
-        i = screwClusterParent[i];
-      }
-      return i;
-    }
-    for (let i = 0; i < rawScrewMeshes.length; i++) {
-      for (let j = i + 1; j < rawScrewMeshes.length; j++) {
-        if (boxGapGlobal(rawScrewBoxes[i], rawScrewBoxes[j]) < SCREW_CLUSTER_GAP) {
-          const ri = findScrewCluster(i), rj = findScrewCluster(j);
-          if (ri !== rj) screwClusterParent[ri] = rj;
-        }
-      }
-    }
-    const screwClusterMap = new Map(); // root index -> meshes[]
-    rawScrewMeshes.forEach((mesh, i) => {
-      const root = findScrewCluster(i);
-      if (!screwClusterMap.has(root)) screwClusterMap.set(root, []);
-      screwClusterMap.get(root).push(mesh);
+    // No pairing needed — confirmed each 91420A node is already one
+    // complete screw mesh (1080 nodes = 1080 screws, avg 1.00 mesh/group).
+    rawScrewGroups.forEach((g) => {
+      screwGroups.push(g);
+      screwMeshes.push(...g);
     });
-    screwClusterMap.forEach((meshes) => {
-      screwGroups.push(meshes);
-      screwMeshes.push(...meshes);
-    });
-
-    // EVIDENCE — real names/parents per cluster, so we can confirm whether
-    // clustering actually reunited fragments (expect avg meshCount > 1 now)
-    // and spot anything suspicious: size-1 clusters (still isolated —
-    // SCREW_CLUSTER_GAP may be too small) or size-3+ clusters (possibly
-    // over-merged with a neighboring screw — gap may be too big).
-    const screwClusterSizes = new Map(); // meshCount -> instance count
-    const screwClusterSamples = { size1: [], size2: [], size3plus: [] };
-    screwClusterMap.forEach((meshes) => {
-      const n = meshes.length;
-      screwClusterSizes.set(n, (screwClusterSizes.get(n) || 0) + 1);
-      const sample = {
-        meshCount: n,
-        names: meshes.map((m) => m.name),
-        parentNames: meshes.map((m) => (m.parent ? m.parent.name : null)),
-      };
-      if (n === 1 && screwClusterSamples.size1.length < 5) screwClusterSamples.size1.push(sample);
-      else if (n === 2 && screwClusterSamples.size2.length < 5) screwClusterSamples.size2.push(sample);
-      else if (n >= 3 && screwClusterSamples.size3plus.length < 5) screwClusterSamples.size3plus.push(sample);
-    });
-    console.log(
-      `Screw clustering: ${rawScrewMeshes.length} raw meshes -> ${screwClusterMap.size} physical screw instances.`,
-      'Cluster size distribution (meshCount -> instance count):', Object.fromEntries(screwClusterSizes),
-      'Samples by size:', screwClusterSamples
-    );
 
     // DIAGNOSTIC ONLY — no mutation. The previous version of this block
     // reassigned any legScrapMesh within 0.05 of a screw into that screw's
@@ -1680,6 +1613,9 @@ loader.load(
       archAxis.set(archGroupEntry, axis);
     });
 
+    const archScrewLogSamples = [];
+    const postScrewLogSamples = [];
+
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const { best, c } = screwInfo.get(group) || {};
@@ -1708,44 +1644,50 @@ loader.load(
         const archMatch = screwArchMatch.get(group);
 
         if (archMatch) {
-          // Arch-attachment screw: inherit the SAME whole-leg splay motion
-          // as its arch (phase1Offset/phase2Offset) — this is what makes it
-          // move on the X-Z plane during phase 1 instead of sitting still
-          // (previously it only inherited the scrap connector's own offset,
-          // which is zero in phase 1).
+          // Arch-attachment screw: phase 1 + phase 2 baseline inherit the
+          // SAME whole-leg splay motion as its arch, at FULL magnitude (no
+          // scaling) — this is what keeps it visually seated with the arch
+          // as the leg splays, instead of drifting off it.
           p1Offset = archMatch.legSplayPhase1.clone();
           p2Offset = archMatch.legSplayPhase2.clone();
 
-          // Shared per-arch axis (computed once above, not per screw) plus
-          // the arch's own separation offset — both timed to the same
-          // ARCH_PHASE_T0-T1 window the arch itself separates in, so the
-          // screw slides free exactly as its arch pulls away, in a single
-          // clean direction shared by every screw on that arch.
-          extraOffset = archMatch.archOffset.clone();
+          // Pull-out is PURE hole-axis motion now — archMatch.archOffset
+          // (the arch's own sideways separation from the post, magnitude
+          // 0.18) is deliberately NOT included here anymore. Mixing it in
+          // made the screw mostly track the arch's sideways split instead
+          // of sliding out of its own hole, since 0.18 dwarfs the 0.05
+          // pullout. The arch mesh itself still separates on its own
+          // ARCH_PHASE_T0-T1 schedule — untouched — this only changes what
+          // the SCREW does, and it now starts right at phase-2's beginning
+          // like the post screws, not waiting for the arch to pull away.
           const axis = archAxis.get(archMatch);
           if (axis) {
-            extraOffset.add(toLocalDir(axis.clone().multiplyScalar(LEG_SCREW_PULLOUT)));
+            extraOffset = toLocalDir(axis.clone().multiplyScalar(LEG_SCREW_PULLOUT));
+            extraT0 = PHASE2_START;
+            extraT1 = LEG_SCREW_SLIDE_T1;
+
+            if (archScrewLogSamples.length < 6) {
+              archScrewLogSamples.push({
+                screwNames: group.map((m) => m.name),
+                archMeshNames: archMatch.meshes.map((m) => m.name),
+                sharedAxis: axis.toArray().map((n) => Number(n.toFixed(4))),
+              });
+            }
           }
-          extraT0 = ARCH_PHASE_T0;
-          extraT1 = ARCH_PHASE_T1;
         } else {
           // Post-attachment screw (fastens a scrap block into the middle
-          // post). Each screw gets its OWN pullout axis — no sharing
-          // between the two screws on a connector, since evidence showed
-          // they're driven in at different angles (roughly orthogonal to
-          // each other in the X-Z plane). Phase 1: unchanged, follows the
-          // connector's leg-splay motion. Phase 2: pulls out along its own
-          // shaft axis (flattened to X-Z), starting as soon as phase 2
-          // begins — it isn't waiting on an arch to clear out first.
-          p1Offset = best.phase1Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
-          p2Offset = best.phase2Offset.clone().multiplyScalar(LEG_SCREW_FOLLOW_SCALE);
+          // post). Phase 1 + phase 2 baseline now inherit the connector's
+          // FULL motion (no LEG_SCREW_FOLLOW_SCALE damping) — that damping
+          // was the bug: the block moved at 100% while its screw moved at
+          // 32%, so the screw visibly separated from the block during
+          // phase 1, before the intended slide-out even began.
+          p1Offset = best.phase1Offset.clone();
+          p2Offset = best.phase2Offset.clone();
 
-          // A single screw's own PCA axis is too noisy to trust directly —
-          // same failure mode as the table-screw confetti: too little
-          // vertex signal for a stable dominant eigenvector. Instead, use
-          // two known, deterministic directions (radial = out of the leg,
-          // tangential = perpendicular, both in the X-Z plane) and use the
-          // noisy PCA only to CLASSIFY which one this screw belongs to.
+          // Each screw still gets its own pullout axis (no sharing between
+          // the 2 screws on a connector — they're driven in at different
+          // angles). Classify radial-vs-tangential from a noisy per-screw
+          // PCA vote, same as before, but now logged for verification.
           if (best.radialDir && best.radialDir.lengthSq() > 1e-10) {
             const radialAxis = best.radialDir.clone();
             const tangentAxis = new THREE.Vector3(-radialAxis.z, 0, radialAxis.x);
@@ -1754,29 +1696,39 @@ loader.load(
             const rawAxis = screwAxisFromVertices(shaftMesh);
             rawAxis.y = 0;
 
-            let chosenAxis;
+            let chosenAxis, chosenLabel, dotRadial = 0, dotTangent = 0;
             if (rawAxis.lengthSq() > 1e-10) {
               rawAxis.normalize();
-              chosenAxis = Math.abs(rawAxis.dot(radialAxis)) >= Math.abs(rawAxis.dot(tangentAxis))
-                ? radialAxis.clone()
-                : tangentAxis.clone();
+              dotRadial = rawAxis.dot(radialAxis);
+              dotTangent = rawAxis.dot(tangentAxis);
+              const pickRadial = Math.abs(dotRadial) >= Math.abs(dotTangent);
+              chosenAxis = pickRadial ? radialAxis.clone() : tangentAxis.clone();
+              chosenLabel = pickRadial ? 'radial' : 'tangent';
             } else {
               chosenAxis = radialAxis.clone(); // fallback if PCA degenerates entirely
+              chosenLabel = 'radial (PCA degenerate)';
             }
 
-            // Resolve sign from THIS screw's own centroid relative to the
-            // connector — not a connector-average, since the two post
-            // screws point different ways and averaging would wash that out.
             const dirToScrew = c.clone().sub(best.c);
             dirToScrew.y = 0;
             if (dirToScrew.lengthSq() > 1e-10 && chosenAxis.dot(dirToScrew) < 0) chosenAxis.negate();
 
             extraOffset = toLocalDir(chosenAxis.multiplyScalar(LEG_SCREW_PULLOUT));
             extraT0 = PHASE2_START;
-            extraT1 = 1.0;
-          }          // closes if (best.radialDir)
+            extraT1 = LEG_SCREW_SLIDE_T1;
 
-        }            // closes else { ... post-attachment screw }
+            if (postScrewLogSamples.length < 10) {
+              postScrewLogSamples.push({
+                screwNames: group.map((m) => m.name),
+                parentNames: group.map((m) => (m.parent ? m.parent.name : null)),
+                rawAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
+                dotRadial: Number(dotRadial.toFixed(4)),
+                dotTangent: Number(dotTangent.toFixed(4)),
+                chosen: chosenLabel,
+              });
+            }
+          }
+        }
 
       } else {       // closes else if (best)
 
@@ -1802,6 +1754,9 @@ loader.load(
     explodeData.forEach((entry) => {
       entry.baseModel = modelSpacePos(entry.mesh);
     });
+
+    console.log('Arch-attachment screw axis samples (shared per-arch axis, up to 6):', archScrewLogSamples);
+    console.log('Post-attachment screw axis samples (radial-vs-tangential classification, up to 10):', postScrewLogSamples);
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Table-scrap connectors:', tableScrapMeshes.length, '/ expected 24');

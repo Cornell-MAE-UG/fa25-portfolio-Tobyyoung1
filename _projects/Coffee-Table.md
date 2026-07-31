@@ -1092,7 +1092,8 @@ loader.load(
     // (same fix pattern as the table-screw PCA noise issue).
     const legArchGroups = []; // { meshes, legSplayPhase1, legSplayPhase2, archOffset }
     const meshToArchGroup = new Map(); // arch mesh -> its legArchGroups entry
-    const legScrapClusterList = []; // { meshes, centroid, box } — one entry per physical scrap connector, populated below
+    const legScrapClusterList = []; // { meshes, centroid, box, phase1Offset, phase2Offset } — one entry per physical scrap connector, populated below
+    const meshToScrapCluster = new Map(); // leg-scrap mesh -> its OWNING legScrapClusterList entry (fixes screws fragmenting across per-raw-mesh refs)
 
     // Track the 2 top-of-leg scrap connectors per leg so they can ride along
     // with the whole-leg splay in phase 1, instead of waiting for phase 2
@@ -1199,13 +1200,6 @@ loader.load(
         centroids.forEach((cc) => c.add(cc));
         c.divideScalar(centroids.length);
 
-        // Register every physical cluster globally, regardless of whether
-        // it matches an arch below — this is the real, complete list of
-        // connector instances the screw diagnostic will match against.
-        const mergedBox = boxes[0].clone();
-        for (let bi = 1; bi < boxes.length; bi++) mergedBox.union(boxes[bi]);
-        legScrapClusterList.push({ meshes, centroid: c.clone(), box: mergedBox });
-
         const distRight = rightC ? c.distanceToSquared(rightC) : Infinity;
         const distLeft  = leftC ? c.distanceToSquared(leftC) : Infinity;
         if (distRight === Infinity && distLeft === Infinity) return; // no arch on this leg — leave on old fallback behavior
@@ -1223,9 +1217,25 @@ loader.load(
         const p1Offset = legSplayPhase1.clone();
         const p2Offset = toLocalDir(scrapPhase2);
 
+        // FIX: register this connector as ONE shared object that every mesh
+        // in the cluster — and later, every screw fastened into it — points
+        // back to. Previously each raw sub-mesh got its own ref (built in a
+        // separate loop below), so a connector spanning ~8 sub-meshes produced
+        // ~8 different "nearest ref" buckets, splitting its 2 screws apart
+        // instead of pooling them for a shared axis.
+        const mergedBox = boxes[0].clone();
+        for (let bi = 1; bi < boxes.length; bi++) mergedBox.union(boxes[bi]);
+        const clusterEntry = {
+          meshes, centroid: c.clone(), box: mergedBox,
+          phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone(),
+          isTableScrap: false,
+        };
+        legScrapClusterList.push(clusterEntry);
+
         meshes.forEach((mesh) => {
           topLegScrapMeshesSet.add(mesh);
           topLegScrapSplay.set(mesh, { phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
+          meshToScrapCluster.set(mesh, clusterEntry);
           explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
         });
       });
@@ -1500,36 +1510,32 @@ loader.load(
       tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: true });
     });
 
-    // Leg-internal scrap connectors: stay put in phase 1, explode out+up in phase 2
-    const legScrapRefs = [];
-    legScrapMeshes.forEach((mesh) => {
-      const c = worldCentroid(mesh);
-
-      if (topLegScrapMeshesSet.has(mesh)) {
-        // Already pushed to explodeData in the quadrants loop with the
-        // leg-splay motion — just register it here for screw lookup.
-        const splay = topLegScrapSplay.get(mesh);
-        const radialDir = (meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0)).clone();
-        radialDir.y = 0;
-        if (radialDir.lengthSq() > 1e-10) radialDir.normalize();
-        legScrapRefs.push({ c, phase1Offset: splay.phase1Offset, phase2Offset: splay.phase2Offset, isTableScrap: false, radialDir });
-        return;
-      }
-
-      const outDir = meshQuadrantDir.get(mesh) || new THREE.Vector3(1, 0, 0);
-      const dir = outDir.clone().add(new THREE.Vector3(0, 0.8, 0)).normalize();
-      // Phase 1: move with the rest of the leg (whole-leg splay, same as
-      // the middle post) instead of staying at zero — the connector and
-      // its screws should ride along in phase 1, only separating on their
-      // own in phase 2.
-      const p1Offset = toLocalDir(outDir.clone().multiplyScalar(EXPLODE_LEG_PHASE1));
-      const p2Offset = toLocalDir(dir.multiplyScalar(LEG_SCRAP_SLIDE));
-      explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-      const radialDir = outDir.clone();
-      radialDir.y = 0;
-      if (radialDir.lengthSq() > 1e-10) radialDir.normalize();
-      legScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: false, radialDir });
+    // Leg-internal scrap connectors: ONE ref per physical connector cluster
+    // (8 total — 2 per leg), not per raw sub-mesh. This is the other half of
+    // the fragmentation fix — every mesh belonging to a real connector now
+    // resolves to the exact same ref object via meshToScrapCluster, so a
+    // connector's 2 screws always get pooled together downstream.
+    const legScrapRefs = legScrapClusterList.map((cluster) => {
+      const anyMesh = cluster.meshes[0];
+      const outDir = (meshQuadrantDir.get(anyMesh) || new THREE.Vector3(1, 0, 0)).clone();
+      outDir.y = 0;
+      if (outDir.lengthSq() > 1e-10) outDir.normalize();
+      return {
+        c: cluster.centroid,
+        phase1Offset: cluster.phase1Offset,
+        phase2Offset: cluster.phase2Offset,
+        isTableScrap: false,
+        radialDir: outDir,
+      };
     });
+
+    const unclusteredLegScrapMeshes = legScrapMeshes.filter((m) => !meshToScrapCluster.has(m));
+    if (unclusteredLegScrapMeshes.length) {
+      console.warn(
+        `${unclusteredLegScrapMeshes.length} leg-scrap meshes weren't assigned to a connector cluster — their screws will be frozen:`,
+        unclusteredLegScrapMeshes.map((m) => m.name)
+      );
+    }
 
     // Screws inherit their nearest connector's offset. Table-top screws ride
     // almost fully with the connector's rise (they should stay visually
@@ -1576,7 +1582,9 @@ loader.load(
     // short, easily-flipped dirToScrew vector.
     const connectorAxis = new Map(); // connectorRef -> world-space unit axis
     screwsByConnector.forEach((groups, connector) => {
-      if (!connector.isTableScrap) return; // leg screws don't use an explicit axis
+      // Previously leg connectors were skipped here and fell through to
+      // noisy per-screw PCA. Now that legScrapRefs is one ref per real
+      // connector, this pools the same way it already does for table-scrap.
       const axis = computeSharedShaftAxis(groups);
       if (!axis) return;
 
@@ -1618,6 +1626,11 @@ loader.load(
 
       archAxis.set(archGroupEntry, axis);
     });
+
+    console.log(
+      `Arch axis computed for ${archAxis.size} / ${legArchGroups.length} arches. Screw counts per arch (expect ~2 each):`,
+      Array.from(screwsByArch.values()).map((g) => g.length)
+    );
 
     const archScrewLogSamples = [];
     const postScrewLogSamples = [];
@@ -1682,44 +1695,20 @@ loader.load(
           }
         } else {
           // Post-attachment screw (fastens a scrap block into the middle
-          // post). Phase 1 + phase 2 baseline now inherit the connector's
-          // FULL motion (no LEG_SCREW_FOLLOW_SCALE damping) — that damping
-          // was the bug: the block moved at 100% while its screw moved at
-          // 32%, so the screw visibly separated from the block during
-          // phase 1, before the intended slide-out even began.
+          // post). Phase 1 + phase 2 baseline inherit the connector's motion.
           p1Offset = best.phase1Offset.clone();
           p2Offset = best.phase2Offset.clone();
 
-          // Each screw still gets its own pullout axis (no sharing between
-          // the 2 screws on a connector — they're driven in at different
-          // angles). Classify radial-vs-tangential from a noisy per-screw
-          // PCA vote, same as before, but now logged for verification.
-          if (best.radialDir && best.radialDir.lengthSq() > 1e-10) {
-            const radialAxis = best.radialDir.clone();
-            const tangentAxis = new THREE.Vector3(-radialAxis.z, 0, radialAxis.x);
-
-            const shaftMesh = pickShaftMesh(group);
-            const rawAxis = screwAxisFromVertices(shaftMesh);
-            rawAxis.y = 0;
-
-            let chosenAxis, chosenLabel, dotRadial = 0, dotTangent = 0;
-            if (rawAxis.lengthSq() > 1e-10) {
-              rawAxis.normalize();
-              dotRadial = rawAxis.dot(radialAxis);
-              dotTangent = rawAxis.dot(tangentAxis);
-              const pickRadial = Math.abs(dotRadial) >= Math.abs(dotTangent);
-              chosenAxis = pickRadial ? radialAxis.clone() : tangentAxis.clone();
-              chosenLabel = pickRadial ? 'radial' : 'tangent';
-            } else {
-              chosenAxis = radialAxis.clone(); // fallback if PCA degenerates entirely
-              chosenLabel = 'radial (PCA degenerate)';
-            }
-
+          // FIX: use the connector's SHARED axis — now that `best` resolves
+          // to one ref per real physical connector, this pools both of its
+          // screws instead of voting on each one's noisy individual PCA.
+          const axis = connectorAxis.get(best);
+          if (axis) {
             const dirToScrew = c.clone().sub(best.c);
-            dirToScrew.y = 0;
-            if (dirToScrew.lengthSq() > 1e-10 && chosenAxis.dot(dirToScrew) < 0) chosenAxis.negate();
+            const signedAxis = axis.clone();
+            if (dirToScrew.lengthSq() > 1e-10 && signedAxis.dot(dirToScrew) < 0) signedAxis.negate();
 
-            extraOffset = toLocalDir(chosenAxis.multiplyScalar(LEG_SCREW_PULLOUT));
+            extraOffset = toLocalDir(signedAxis.multiplyScalar(LEG_SCREW_PULLOUT));
             extraT0 = PHASE2_START;
             extraT1 = LEG_SCREW_SLIDE_T1;
 
@@ -1727,10 +1716,7 @@ loader.load(
               postScrewLogSamples.push({
                 screwNames: group.map((m) => m.name),
                 parentNames: group.map((m) => (m.parent ? m.parent.name : null)),
-                rawAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
-                dotRadial: Number(dotRadial.toFixed(4)),
-                dotTangent: Number(dotTangent.toFixed(4)),
-                chosen: chosenLabel,
+                sharedAxis: axis.toArray().map((n) => Number(n.toFixed(4))),
               });
             }
           }

@@ -838,6 +838,37 @@ const TABLE_SCREW_PULLOUT = 0.08; // extra distance to clear the hole, along scr
 const LEG_SCREW_PULLOUT = 0.05; // extra distance for arch-attachment screws, along screw axis
 const LEG_SCREW_SLIDE_T1 = Math.min(PHASE2_START + 0.25, 1.0); // both leg-screw categories finish their hole-axis slide by here — a clear, early snap, not a slow drift to 1.0
 
+// GROUND TRUTH from the Fusion 360 browser tree, read off directly by Toby
+// (right-clicked each Scrap_connector node, noted its 2 fastening screws).
+// This replaces geometric nearest-match for THESE 16 screws — no distance
+// math decides which screw belongs to which connector anymore, this does.
+const SCREW_CONNECTOR_MAP = {
+  '91420A428_20': 1, '91420A428_23': 1,
+  '91420A428_22': 2, '91420A428_21': 2,
+  '91420A428_13': 3, '91420A428_14': 3,
+  '91420A428_12': 4, '91420A428_15': 4,
+  '91420A428_24': 5, '91420A428_11': 5,
+  '91420A428_9': 6,  '91420A428_10': 6,
+  '91420A428_16': 7, '91420A428_17': 7,
+  '91420A428_18': 8, '91420A428_19': 8,
+};
+
+// Walks every mesh in a screw group up its full parent chain looking for a
+// node name that's an exact key in SCREW_CONNECTOR_MAP — robust to however
+// the exporter nested the head/shaft sub-meshes under the named instance.
+function connectorIdForScrewGroup(group) {
+  for (const mesh of group) {
+    let node = mesh;
+    while (node) {
+      if (node.name && Object.prototype.hasOwnProperty.call(SCREW_CONNECTOR_MAP, node.name)) {
+        return SCREW_CONNECTOR_MAP[node.name];
+      }
+      node = node.parent;
+    }
+  }
+  return null;
+}
+
 function smoothstep(edge0, edge1, x) {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
@@ -968,6 +999,24 @@ loader.load(
       screwMeshes.push(...g);
     });
 
+    // Group screws by the Fusion-confirmed connector id — pure name lookup,
+    // no mesh position involved. Built early so it's ready before the
+    // sign-resolved shared axis is computed further down.
+    const namedConnectorGroups = new Map(); // connectorId -> screwGroups[]
+    screwGroups.forEach((group) => {
+      const cid = connectorIdForScrewGroup(group);
+      if (cid == null) return;
+      if (!namedConnectorGroups.has(cid)) namedConnectorGroups.set(cid, []);
+      namedConnectorGroups.get(cid).push(group);
+    });
+    console.log(
+      'Named leg-scrap connectors resolved from SCREW_CONNECTOR_MAP (expect 8 entries, 2 screw groups each — if this is short or empty, the GLTF node names don\'t match the Fusion names 1:1 and need re-checking):',
+      Array.from(namedConnectorGroups.entries()).map(([cid, groups]) => ({
+        connectorId: cid,
+        screwCount: groups.length,
+        screwNames: groups.map((g) => g.map((m) => m.name)),
+      }))
+    );
     // DIAGNOSTIC ONLY — no mutation. The previous version of this block
     // reassigned any legScrapMesh within 0.05 of a screw into that screw's
     // group, on the guess that it was a misclassified shaft. But a genuine
@@ -1668,12 +1717,65 @@ loader.load(
       Array.from(screwsByArch.values()).map((g) => g.length)
     );
 
+    // Link each named connector id to its real geometric cluster (from
+    // legScrapClusterList — already correctly split per-leg/per-side) by
+    // nearest centroid among just the 8 candidates. This is the ONLY
+    // geometry involved for these 16 screws, and it's low-stakes: it just
+    // borrows the cluster's already-correct position/motion data. It does
+    // NOT decide which screws belong together — SCREW_CONNECTOR_MAP already
+    // decided that above.
+    const connectorIdToCluster = new Map(); // connectorId -> legScrapClusterList entry
+    namedConnectorGroups.forEach((groups, cid) => {
+      const avgC = new THREE.Vector3();
+      groups.forEach((g) => {
+        const gc = new THREE.Vector3();
+        g.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(g.length);
+        avgC.add(gc);
+      });
+      avgC.divideScalar(groups.length);
+
+      let bestCluster = null, bestDist = Infinity;
+      legScrapClusterList.forEach((cluster) => {
+        const d = avgC.distanceToSquared(cluster.centroid);
+        if (d < bestDist) { bestDist = d; bestCluster = cluster; }
+      });
+      if (bestCluster) connectorIdToCluster.set(cid, bestCluster);
+    });
+
+    // Shared shaft axis per named connector, computed ONLY from that
+    // connector's own 2 confirmed screws (no pooling with anything else),
+    // sign-resolved against its linked cluster's centroid.
+    const namedConnectorAxis = new Map(); // connectorId -> world-space unit axis
+    namedConnectorGroups.forEach((groups, cid) => {
+      const cluster = connectorIdToCluster.get(cid);
+      if (!cluster) return;
+      const axis = computeSharedShaftAxis(groups);
+      if (!axis) return;
+
+      const avgScrewCentroid = new THREE.Vector3();
+      groups.forEach((group) => {
+        const gc = new THREE.Vector3();
+        group.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(group.length);
+        avgScrewCentroid.add(gc);
+      });
+      avgScrewCentroid.divideScalar(groups.length);
+
+      const dirToScrews = avgScrewCentroid.clone().sub(cluster.centroid);
+      if (dirToScrews.lengthSq() > 1e-10 && axis.dot(dirToScrews) < 0) axis.negate();
+
+      namedConnectorAxis.set(cid, axis);
+    });
+    console.log(`Named connector axis resolved for ${namedConnectorAxis.size} / ${namedConnectorGroups.size} connectors.`);
+
     const archScrewLogSamples = [];
     const postScrewLogSamples = [];
 
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const { best, c } = screwInfo.get(group) || {};
+      const namedConnectorId = connectorIdForScrewGroup(group);
 
       let p1Offset, p2Offset;
       let extraOffset = null;
@@ -1694,6 +1796,29 @@ loader.load(
           extraOffset = toLocalDir(axis.clone().multiplyScalar(TABLE_SCREW_PULLOUT));
           extraT0 = PHASE1_END;
           extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
+        }
+      } else if (namedConnectorId != null && connectorIdToCluster.has(namedConnectorId)) {
+        // AUTHORITATIVE PATH — this screw's connector was read directly off
+        // the Fusion 360 browser tree (SCREW_CONNECTOR_MAP), not matched by
+        // distance. Every leg-scrap-to-post screw should land here now.
+        const cluster = connectorIdToCluster.get(namedConnectorId);
+        p1Offset = cluster.phase1Offset.clone();
+        p2Offset = cluster.phase2Offset.clone();
+
+        const axis = namedConnectorAxis.get(namedConnectorId);
+        if (axis) {
+          extraOffset = toLocalDir(axis.clone().multiplyScalar(LEG_SCREW_PULLOUT));
+          extraT0 = PHASE2_START;
+          extraT1 = LEG_SCREW_SLIDE_T1;
+
+          if (postScrewLogSamples.length < 16) {
+            postScrewLogSamples.push({
+              screwNames: group.map((m) => m.name),
+              connectorId: namedConnectorId,
+              sharedAxis: axis.toArray().map((n) => Number(n.toFixed(4))),
+              source: 'name-lookup',
+            });
+          }
         }
       } else if (best) {
         const archMatch = screwArchMatch.get(group);

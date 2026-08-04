@@ -1242,6 +1242,7 @@ loader.load(
         const clusterEntry = {
           meshes, centroid: c.clone(), box: mergedBox,
           phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone(),
+          legSplayPhase2: legSplayPhase2.clone(),
           isTableScrap: false,
         };
         legScrapClusterList.push(clusterEntry);
@@ -1357,6 +1358,29 @@ loader.load(
       `Leg-scrap clusters: ${legScrapClusterList.length} instances — nearest 2 screws each (evidence for matching rule):`,
       legScrapClusterScrewCandidates
     );
+
+    // Ground truth: exactly 2 physical fastening screws per leg-scrap
+    // connector (the screws that actually pass through the scrap block
+    // itself), identified by nearest-centroid match — same matching the
+    // diagnostic above already validated. ONLY these screws should inherit
+    // the scrap block's own motion (including its phase-2 retrace/
+    // separation); every other leg-internal screw rides the leg's plain
+    // splay instead, regardless of whether it sits nearer an arch or a post.
+    const trueScrapScrewGroups = new Set();
+    const scrapScrewToCluster = new Map(); // screwGroup -> legScrapClusterList entry
+    legScrapClusterList.forEach((cluster) => {
+      const distances = screwGroups.map((group) => {
+        const gc = new THREE.Vector3();
+        group.forEach((m) => gc.add(worldCentroid(m)));
+        gc.divideScalar(group.length);
+        return { group, dist: cluster.centroid.distanceTo(gc) };
+      });
+      distances.sort((a, b) => a.dist - b.dist);
+      distances.slice(0, 2).forEach(({ group }) => {
+        trueScrapScrewGroups.add(group);
+        scrapScrewToCluster.set(group, cluster);
+      });
+    });
 
     function principalAxisWorld(mesh) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
@@ -1810,10 +1834,15 @@ loader.load(
       const { best, c } = screwInfo.get(group) || {};
 
       let p1Offset, p2Offset;
-      let extraOffset = null;
-      let extraT0, extraT1;
 
-      if (best && best.isTableScrap) {
+      if (trueScrapScrewGroups.has(group)) {
+        // One of the 2 physical fastening screws for this leg-scrap
+        // connector — moves with the scrap block itself, including its
+        // phase-2 retrace/separation motion.
+        const cluster = scrapScrewToCluster.get(group);
+        p1Offset = cluster.phase1Offset.clone();
+        p2Offset = cluster.phase2Offset.clone();
+      } else if (best && best.isTableScrap) {
         // Table-top screws ride with their connector exactly — no
         // independent pull-out along the screw axis anymore.
         // best.phase1Offset is already local (converted when tableScrapRefs
@@ -1821,21 +1850,19 @@ loader.load(
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
       } else if (best) {
+        // Every other leg-internal screw — nearest an arch OR nearest a
+        // post, doesn't matter — is NOT one of the scrap block's own 2
+        // fastening screws, so it does NOT move with the scrap group. It
+        // just rides the leg's plain splay, same as the middle post and
+        // arches themselves.
         const archMatch = screwArchMatch.get(group);
 
         if (archMatch) {
-          // Arch-attachment screw: rides with its arch's whole-leg splay
-          // motion, at FULL magnitude (no scaling) — no independent
-          // pull-out along the screw axis anymore, it just translates
-          // with its connector like any other part of it.
           p1Offset = archMatch.legSplayPhase1.clone();
           p2Offset = archMatch.legSplayPhase2.clone();
         } else {
-          // Post-attachment screw (fastens a scrap block into the middle
-          // post). Rides with the connector's motion exactly — no
-          // independent pull-out along the screw axis anymore.
           p1Offset = best.phase1Offset.clone();
-          p2Offset = best.phase2Offset.clone();
+          p2Offset = best.legSplayPhase2.clone();
         }
 
       } else {       // closes else if (best)

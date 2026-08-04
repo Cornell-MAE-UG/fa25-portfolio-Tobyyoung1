@@ -1488,15 +1488,56 @@ loader.load(
     // Right/Left/Middle part names are confirmed stable (32/32/40/40 above),
     // so we just find which named part mesh a screw's centroid sits closest
     // to and read its classification straight off that mesh.
-    const legPartLookup = []; // { mesh, kind: 'arch' | 'middle', archGroup }
-    rightLeanMeshes.forEach((m) => legPartLookup.push({ mesh: m, kind: 'arch', archGroup: meshToArchGroup.get(m) || null }));
-    leftLeanMeshes.forEach((m) => legPartLookup.push({ mesh: m, kind: 'arch', archGroup: meshToArchGroup.get(m) || null }));
-    middleMeshes.forEach((m) => legPartLookup.push({ mesh: m, kind: 'middle', archGroup: null }));
+    // FIX: nearestLegPart previously compared a screw's centroid against
+    // each INDIVIDUAL leg-part submesh's centroid. Near the top of the leg,
+    // where the right arch and left arch both approach the post, two
+    // submeshes from DIFFERENT arch instances can sit closer to each other
+    // than either does to the screw's true side — so "nearest single
+    // submesh centroid" silently hands the screw to the wrong arch's
+    // archGroupEntry. Diagnostic confirmed this: 356 arch screws were
+    // cross-instance ambiguous (different archGroupEntry, not just
+    // different submeshes of the same arch), clustered right at that
+    // convergence height — exactly the failure mode, not curvature noise.
+    //
+    // Same fix as the earlier scrap-connector box-match (which got
+    // cross-quadrant mismatches to 0): compare against the MERGED
+    // bounding box of the whole arch instance / whole middle post per leg,
+    // not per-submesh centroids. A screw's true owner is whichever whole
+    // volume it's actually nearest to.
+    const legPartLookup = []; // { box, kind: 'arch' | 'middle', archGroup }
+
+    function mergedBoxFromMeshes(meshes) {
+      if (!meshes.length) return null;
+      const box = new THREE.Box3().setFromObject(meshes[0]);
+      for (let i = 1; i < meshes.length; i++) box.union(new THREE.Box3().setFromObject(meshes[i]));
+      return box;
+    }
+
+    legArchGroups.forEach((archGroupEntry) => {
+      const box = mergedBoxFromMeshes(archGroupEntry.meshes);
+      if (box) legPartLookup.push({ box, kind: 'arch', archGroup: archGroupEntry });
+    });
+
+    // One merged box per leg's middle post (quadrants already groups all
+    // leg-like meshes by leg — filter each leg's slice down to its middle
+    // post submeshes and box them as one volume).
+    quadrants.forEach((group) => {
+      const middleGroupMeshes = group.filter((m) => middleMeshes.includes(m));
+      const box = mergedBoxFromMeshes(middleGroupMeshes);
+      if (box) legPartLookup.push({ box, kind: 'middle', archGroup: null });
+    });
+
+    function pointToBoxDistSqForLegPart(point, box) {
+      const dx = Math.max(box.min.x - point.x, point.x - box.max.x, 0);
+      const dy = Math.max(box.min.y - point.y, point.y - box.max.y, 0);
+      const dz = Math.max(box.min.z - point.z, point.z - box.max.z, 0);
+      return dx * dx + dy * dy + dz * dz;
+    }
 
     function nearestLegPart(centroid) {
       let bestDist = Infinity, bestEntry = null;
       legPartLookup.forEach((entry) => {
-        const d = centroid.distanceToSquared(worldCentroid(entry.mesh));
+        const d = pointToBoxDistSqForLegPart(centroid, entry.box);
         if (d < bestDist) { bestDist = d; bestEntry = entry; }
       });
       if (!bestEntry) return null;

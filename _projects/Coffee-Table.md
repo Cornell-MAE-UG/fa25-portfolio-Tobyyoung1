@@ -805,11 +805,13 @@ let defaultTarget = controls.target.clone();
 // --- Tiered explode state ---
 // Phase 1 (slider 0-50%): tabletop rises; whole legs (post + 2 arches,
 // moving together as rigid units) splay outward; the arch-to-arch-to-
-// tabletop scrap connectors + their screws slide out of their holes.
+// tabletop scrap connectors rise with the tabletop. Screws always ride
+// along with whichever connector/part they're fastened into — they no
+// longer pull out of their holes independently.
 // Phase 2 (slider 50-100%): tabletop and table-scrap connectors HOLD their
 // phase-1 position; legs continue spreading further; each arch separates
-// from its middle post; leg-internal scrap connectors + their screws
-// explode out.
+// from its middle post; leg-internal scrap connectors explode out, and
+// their screws move with them.
 //
 // IMPORTANT: every offset stored in explodeData is expressed in MODEL-LOCAL
 // space, matching baseModel (also local). This is what makes the explode
@@ -1812,94 +1814,28 @@ loader.load(
       let extraT0, extraT1;
 
       if (best && best.isTableScrap) {
+        // Table-top screws ride with their connector exactly — no
+        // independent pull-out along the screw axis anymore.
         // best.phase1Offset is already local (converted when tableScrapRefs
         // were built), so it can be reused directly.
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
-
-        // FIX: per-screw bbox long-axis instead of whole-mesh PCA. PCA over
-        // a full head+shaft screw let the flat, wide head dominate the
-        // principal axis (confirmed via console: >100° off from the true
-        // bbox axis on some screws) — bbox long-axis is clean and
-        // axis-aligned since these are CAD-exported fasteners. Sign is
-        // resolved per-screw (away from the connector), so no pooling
-        // across screws that might disagree.
-        const sharedAxis = connectorAxis.get(best);
-        let rawAxis;
-        if (sharedAxis) {
-          rawAxis = sharedAxis.clone();
-        } else {
-          rawAxis = principalAxisWorld(group[0]);
-          const dirOut = c.clone().sub(best.c);
-          if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
-        }
-        extraOffset = toLocalDir(rawAxis.multiplyScalar(TABLE_SCREW_PULLOUT));
-        extraT0 = PHASE1_END;
-        extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
       } else if (best) {
         const archMatch = screwArchMatch.get(group);
 
         if (archMatch) {
-          // Arch-attachment screw: phase 1 + phase 2 baseline inherit the
-          // SAME whole-leg splay motion as its arch, at FULL magnitude (no
-          // scaling) — this is what keeps it visually seated with the arch
-          // as the leg splays, instead of drifting off it.
+          // Arch-attachment screw: rides with its arch's whole-leg splay
+          // motion, at FULL magnitude (no scaling) — no independent
+          // pull-out along the screw axis anymore, it just translates
+          // with its connector like any other part of it.
           p1Offset = archMatch.legSplayPhase1.clone();
           p2Offset = archMatch.legSplayPhase2.clone();
-
-          // FIX: per-screw bbox long-axis (see table-scrap branch above for
-          // why). Sign resolved against this screw's own position relative
-          // to its arch's centroid.
-          const sharedAxis = archAxis.get(archMatch);
-          let rawAxis;
-          if (sharedAxis) {
-            rawAxis = sharedAxis.clone();
-          } else {
-            rawAxis = principalAxisWorld(group[0]);
-            const archCentroid = groupCentroid(archMatch.meshes);
-            const dirOut = c.clone().sub(archCentroid);
-            if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
-          }
-          extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
-          extraT0 = PHASE2_START;
-          extraT1 = LEG_SCREW_SLIDE_T1;
-
-          if (archScrewLogSamples.length < 6) {
-            archScrewLogSamples.push({
-              screwNames: group.map((m) => m.name),
-              archMeshNames: archMatch.meshes.map((m) => m.name),
-              bboxAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
-            });
-          }
         } else {
           // Post-attachment screw (fastens a scrap block into the middle
-          // post). Phase 1 + phase 2 baseline inherit the connector's motion.
+          // post). Rides with the connector's motion exactly — no
+          // independent pull-out along the screw axis anymore.
           p1Offset = best.phase1Offset.clone();
           p2Offset = best.phase2Offset.clone();
-
-          // FIX: per-screw bbox long-axis, sign resolved against this
-          // screw's own position relative to the connector centroid.
-          const sharedAxis = connectorAxis.get(best);
-          let rawAxis;
-          if (sharedAxis) {
-            rawAxis = sharedAxis.clone();
-          } else {
-            rawAxis = principalAxisWorld(group[0]);
-            const dirToScrew = c.clone().sub(best.c);
-            if (dirToScrew.lengthSq() > 1e-10 && rawAxis.dot(dirToScrew) < 0) rawAxis.negate();
-          }
-
-          extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
-          extraT0 = PHASE2_START;
-          extraT1 = LEG_SCREW_SLIDE_T1;
-
-          if (postScrewLogSamples.length < 10) {
-            postScrewLogSamples.push({
-              screwNames: group.map((m) => m.name),
-              parentNames: group.map((m) => (m.parent ? m.parent.name : null)),
-              bboxAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
-            });
-          }
         }
 
       } else {       // closes else if (best)

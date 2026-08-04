@@ -1610,6 +1610,7 @@ loader.load(
         box: cluster.box,
         phase1Offset: cluster.phase1Offset,
         phase2Offset: cluster.phase2Offset,
+        legSplayPhase2: cluster.legSplayPhase2,
         isTableScrap: false,
         radialDir: outDir,
       };

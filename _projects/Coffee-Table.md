@@ -1086,6 +1086,7 @@ loader.load(
     quadrants.forEach((group) => {
       const dir = quadrantDirection(group);
       group.forEach((mesh) => meshQuadrantDir.set(mesh, dir));
+      
     });
 
     // Tracks each individual arch instance (8 total: 4 legs × 2 arches) so
@@ -1511,10 +1512,11 @@ loader.load(
     const tableScrapRefs = [];
     tableScrapMeshes.forEach((mesh) => {
       const c = worldCentroid(mesh);
+      const box = new THREE.Box3().setFromObject(mesh);
       const p1Offset = toLocalDir(new THREE.Vector3(0, EXPLODE_TOP * TABLE_SCRAP_HOVER, 0));
       const p2Offset = new THREE.Vector3(0, 0, 0);
       explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
-      tableScrapRefs.push({ c, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: true });
+      tableScrapRefs.push({ c, box, phase1Offset: p1Offset, phase2Offset: p2Offset, isTableScrap: true });
     });
 
     // Leg-internal scrap connectors: ONE ref per physical connector cluster
@@ -1529,6 +1531,7 @@ loader.load(
       if (outDir.lengthSq() > 1e-10) outDir.normalize();
       return {
         c: cluster.centroid,
+        box: cluster.box,
         phase1Offset: cluster.phase1Offset,
         phase2Offset: cluster.phase2Offset,
         isTableScrap: false,
@@ -1562,10 +1565,23 @@ loader.load(
       group.forEach((m) => c.add(worldCentroid(m)));
       c.divideScalar(group.length);
 
+      function pointToBoxDistSq(point, box) {
+      const dx = Math.max(box.min.x - point.x, point.x - box.max.x, 0);
+      const dy = Math.max(box.min.y - point.y, point.y - box.max.y, 0);
+      const dz = Math.max(box.min.z - point.z, point.z - box.max.z, 0);
+      return dx * dx + dy * dy + dz * dz;
+      }
+
       let best = null;
       let bestDist = Infinity;
       scrapRefs.forEach((ref) => {
-        const d = c.distanceToSquared(ref.c);
+        // Match against the connector's actual volume, not just its
+        // centroid point — the table-scrap and top-of-leg-scrap connectors
+        // sit close together, and a screw genuinely inside one connector's
+        // box could still be centroid-closer to the OTHER connector's
+        // single point if that connector is small. Distance-to-box fixes
+        // the "top screw grouped with the wrong connector" misattribution.
+        const d = ref.box ? pointToBoxDistSq(c, ref.box) : c.distanceToSquared(ref.c);
         if (d < bestDist) { bestDist = d; best = ref; }
       });
       

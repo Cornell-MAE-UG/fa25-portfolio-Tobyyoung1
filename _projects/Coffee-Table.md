@@ -1834,6 +1834,7 @@ loader.load(
       const { best, c } = screwInfo.get(group) || {};
 
       let p1Offset, p2Offset;
+      let extraOffset = null, extraT0 = null, extraT1 = null;
 
       if (trueScrapScrewGroups.has(group)) {
         // One of the 2 physical fastening screws for this leg-scrap
@@ -1860,6 +1861,9 @@ loader.load(
         if (archMatch) {
           p1Offset = archMatch.legSplayPhase1.clone();
           p2Offset = archMatch.legSplayPhase2.clone();
+          extraOffset = archMatch.archOffset.clone();
+          extraT0 = ARCH_PHASE_T0;
+          extraT1 = ARCH_PHASE_T1;
         } else {
           p1Offset = best.phase1Offset.clone();
           p2Offset = best.legSplayPhase2.clone();

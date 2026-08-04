@@ -1761,10 +1761,15 @@ loader.load(
     // ambiguous-margin screws? If yes, wrong grouping is the real driver
     // (not curvature-averaging within a correctly-grouped arch).
     const ambiguousNameSet = new Set(ambiguousAssignments.map((a) => a.screwNames[0]));
+    const crossInstanceNameSet = new Set(crossInstanceAmbiguous.map((a) => a.screwNames[0]));
     const worstOffenders = [...archAxisDisagreement].sort((a, b) => b.angleDeg - a.angleDeg).slice(0, 20);
     const overlapCount = worstOffenders.filter((w) => ambiguousNameSet.has(w.screwNames[0])).length;
+    const crossInstanceOverlapCount = worstOffenders.filter((w) => crossInstanceNameSet.has(w.screwNames[0])).length;
     console.log(
-      `Overlap between worst-angleDeg (top 20) and ambiguous-assignment screws: ${overlapCount} / 20`
+      `Overlap between worst-angleDeg (top 20) and ANY ambiguous-assignment screws: ${overlapCount} / 20`
+    );
+    console.log(
+      `Overlap between worst-angleDeg (top 20) and CROSS-INSTANCE ambiguous screws only: ${crossInstanceOverlapCount} / 20`
     );
 
     // DIAGNOSTIC ONLY — no mutation. nearestLegPart() and the connector

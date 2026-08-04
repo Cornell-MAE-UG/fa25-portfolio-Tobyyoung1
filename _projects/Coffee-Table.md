@@ -1042,7 +1042,8 @@ loader.load(
       const angleDeg = THREE.MathUtils.radToDeg(fullAxis.angleTo(bboxAxis));
       return { name: group[0].name, fullMeshPCA: fullAxis.toArray().map(n=>+n.toFixed(3)), bboxLongAxis: bboxAxis.toArray().map(n=>+n.toFixed(3)), angleBetweenDeg: +angleDeg.toFixed(1) };
     });
-  console.log('PCA-vs-bbox axis comparison (first 10 screws):', axisSample);
+    
+    console.log('PCA-vs-bbox axis comparison (first 10 screws):', axisSample);
 
     const specialSet = new Set([
       ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,
@@ -1680,16 +1681,19 @@ loader.load(
         p1Offset = best.phase1Offset.clone();
         p2Offset = new THREE.Vector3();
 
-        // Shared axis for this connector — same direction for every screw
-        // on it, computed once in the connectorAxis pass above instead of
-        // per-screw. Removes the per-screw PCA noise that was causing
-        // scattered, non-parallel pull-out directions.
-        const axis = connectorAxis.get(best);
-        if (axis) {
-          extraOffset = toLocalDir(axis.clone().multiplyScalar(TABLE_SCREW_PULLOUT));
-          extraT0 = PHASE1_END;
-          extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
-        }
+        // FIX: per-screw bbox long-axis instead of whole-mesh PCA. PCA over
+        // a full head+shaft screw let the flat, wide head dominate the
+        // principal axis (confirmed via console: >100° off from the true
+        // bbox axis on some screws) — bbox long-axis is clean and
+        // axis-aligned since these are CAD-exported fasteners. Sign is
+        // resolved per-screw (away from the connector), so no pooling
+        // across screws that might disagree.
+        const rawAxis = principalAxisWorld(group[0]);
+        const dirOut = c.clone().sub(best.c);
+        if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+        extraOffset = toLocalDir(rawAxis.multiplyScalar(TABLE_SCREW_PULLOUT));
+        extraT0 = PHASE1_END;
+        extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
       } else if (best) {
         const archMatch = screwArchMatch.get(group);
 
@@ -1701,28 +1705,23 @@ loader.load(
           p1Offset = archMatch.legSplayPhase1.clone();
           p2Offset = archMatch.legSplayPhase2.clone();
 
-          // Pull-out is PURE hole-axis motion now — archMatch.archOffset
-          // (the arch's own sideways separation from the post, magnitude
-          // 0.18) is deliberately NOT included here anymore. Mixing it in
-          // made the screw mostly track the arch's sideways split instead
-          // of sliding out of its own hole, since 0.18 dwarfs the 0.05
-          // pullout. The arch mesh itself still separates on its own
-          // ARCH_PHASE_T0-T1 schedule — untouched — this only changes what
-          // the SCREW does, and it now starts right at phase-2's beginning
-          // like the post screws, not waiting for the arch to pull away.
-          const axis = archAxis.get(archMatch);
-          if (axis) {
-            extraOffset = toLocalDir(axis.clone().multiplyScalar(LEG_SCREW_PULLOUT));
-            extraT0 = PHASE2_START;
-            extraT1 = LEG_SCREW_SLIDE_T1;
+          // FIX: per-screw bbox long-axis (see table-scrap branch above for
+          // why). Sign resolved against this screw's own position relative
+          // to its arch's centroid.
+          const rawAxis = principalAxisWorld(group[0]);
+          const archCentroid = groupCentroid(archMatch.meshes);
+          const dirOut = c.clone().sub(archCentroid);
+          if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+          extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
+          extraT0 = PHASE2_START;
+          extraT1 = LEG_SCREW_SLIDE_T1;
 
-            if (archScrewLogSamples.length < 6) {
-              archScrewLogSamples.push({
-                screwNames: group.map((m) => m.name),
-                archMeshNames: archMatch.meshes.map((m) => m.name),
-                sharedAxis: axis.toArray().map((n) => Number(n.toFixed(4))),
-              });
-            }
+          if (archScrewLogSamples.length < 6) {
+            archScrewLogSamples.push({
+              screwNames: group.map((m) => m.name),
+              archMeshNames: archMatch.meshes.map((m) => m.name),
+              bboxAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
+            });
           }
         } else {
           // Post-attachment screw (fastens a scrap block into the middle
@@ -1730,26 +1729,22 @@ loader.load(
           p1Offset = best.phase1Offset.clone();
           p2Offset = best.phase2Offset.clone();
 
-          // FIX: use the connector's SHARED axis — now that `best` resolves
-          // to one ref per real physical connector, this pools both of its
-          // screws instead of voting on each one's noisy individual PCA.
-          const axis = connectorAxis.get(best);
-          if (axis) {
-            const dirToScrew = c.clone().sub(best.c);
-            const signedAxis = axis.clone();
-            if (dirToScrew.lengthSq() > 1e-10 && signedAxis.dot(dirToScrew) < 0) signedAxis.negate();
+          // FIX: per-screw bbox long-axis, sign resolved against this
+          // screw's own position relative to the connector centroid.
+          const rawAxis = principalAxisWorld(group[0]);
+          const dirToScrew = c.clone().sub(best.c);
+          if (dirToScrew.lengthSq() > 1e-10 && rawAxis.dot(dirToScrew) < 0) rawAxis.negate();
 
-            extraOffset = toLocalDir(signedAxis.multiplyScalar(LEG_SCREW_PULLOUT));
-            extraT0 = PHASE2_START;
-            extraT1 = LEG_SCREW_SLIDE_T1;
+          extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
+          extraT0 = PHASE2_START;
+          extraT1 = LEG_SCREW_SLIDE_T1;
 
-            if (postScrewLogSamples.length < 10) {
-              postScrewLogSamples.push({
-                screwNames: group.map((m) => m.name),
-                parentNames: group.map((m) => (m.parent ? m.parent.name : null)),
-                sharedAxis: axis.toArray().map((n) => Number(n.toFixed(4))),
-              });
-            }
+          if (postScrewLogSamples.length < 10) {
+            postScrewLogSamples.push({
+              screwNames: group.map((m) => m.name),
+              parentNames: group.map((m) => (m.parent ? m.parent.name : null)),
+              bboxAxis: rawAxis.toArray().map((n) => Number(n.toFixed(4))),
+            });
           }
         }
 

@@ -1664,6 +1664,65 @@ loader.load(
       Array.from(screwsByArch.values()).map((g) => g.length)
     );
 
+    // DIAGNOSTIC ONLY — no mutation. nearestLegPart() and the connector
+    // box-match both search the WHOLE model for the nearest part, with no
+    // restriction to "this screw's own leg." Near the bottom of the legs,
+    // two legs' geometry sits closer together than at the top, so a screw
+    // could end up nearest to a NEIGHBORING leg's arch or connector instead
+    // of its own — logging real names + quadrant indices to confirm before
+    // touching the matching logic.
+    function quadrantIndexOf(point) {
+      const dx = point.x - overallCenter.x;
+      const dz = point.z - overallCenter.z;
+      if (dx >= 0 && dz >= 0) return 0;
+      if (dx >= 0 && dz < 0) return 1;
+      if (dx < 0 && dz >= 0) return 2;
+      return 3;
+    }
+
+    const crossQuadrantMismatches = [];
+    screwGroups.forEach((group) => {
+      const info = screwInfo.get(group);
+      if (!info) return;
+      const { best, c } = info;
+      const screwQ = quadrantIndexOf(c);
+
+      const archMatch = screwArchMatch.get(group);
+      if (archMatch) {
+        const archC = groupCentroid(archMatch.meshes);
+        const archQ = quadrantIndexOf(archC);
+        if (archQ !== screwQ) {
+          crossQuadrantMismatches.push({
+            screwNames: group.map((m) => m.name),
+            screwWorldY: Number(c.y.toFixed(4)),
+            matchType: 'arch',
+            screwQuadrant: screwQ,
+            matchQuadrant: archQ,
+            screwPos: c.toArray().map((n) => Number(n.toFixed(4))),
+            matchCentroid: archC.toArray().map((n) => Number(n.toFixed(4))),
+          });
+        }
+      } else if (best) {
+        const bestQ = quadrantIndexOf(best.c);
+        if (bestQ !== screwQ) {
+          crossQuadrantMismatches.push({
+            screwNames: group.map((m) => m.name),
+            screwWorldY: Number(c.y.toFixed(4)),
+            matchType: best.isTableScrap ? 'tableScrapConnector' : 'legScrapConnector',
+            screwQuadrant: screwQ,
+            matchQuadrant: bestQ,
+            screwPos: c.toArray().map((n) => Number(n.toFixed(4))),
+            matchCentroid: best.c.toArray().map((n) => Number(n.toFixed(4))),
+          });
+        }
+      }
+    });
+    crossQuadrantMismatches.sort((a, b) => a.screwWorldY - b.screwWorldY);
+    console.log(
+      `Cross-quadrant screw/connector mismatches: ${crossQuadrantMismatches.length} / ${screwGroups.length} screws (sorted lowest Y first — bottom-of-leg screws most likely to show up here):`,
+      crossQuadrantMismatches
+    );
+
     const archScrewLogSamples = [];
     const postScrewLogSamples = [];
 

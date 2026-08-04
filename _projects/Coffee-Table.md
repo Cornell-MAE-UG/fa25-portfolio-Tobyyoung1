@@ -1688,9 +1688,15 @@ loader.load(
         // axis-aligned since these are CAD-exported fasteners. Sign is
         // resolved per-screw (away from the connector), so no pooling
         // across screws that might disagree.
-        const rawAxis = principalAxisWorld(group[0]);
-        const dirOut = c.clone().sub(best.c);
-        if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+        const sharedAxis = connectorAxis.get(best);
+        let rawAxis;
+        if (sharedAxis) {
+          rawAxis = sharedAxis.clone();
+        } else {
+          rawAxis = principalAxisWorld(group[0]);
+          const dirOut = c.clone().sub(best.c);
+          if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+        }
         extraOffset = toLocalDir(rawAxis.multiplyScalar(TABLE_SCREW_PULLOUT));
         extraT0 = PHASE1_END;
         extraT1 = Math.min(PHASE1_END + 0.25, 1.0);
@@ -1708,10 +1714,16 @@ loader.load(
           // FIX: per-screw bbox long-axis (see table-scrap branch above for
           // why). Sign resolved against this screw's own position relative
           // to its arch's centroid.
-          const rawAxis = principalAxisWorld(group[0]);
-          const archCentroid = groupCentroid(archMatch.meshes);
-          const dirOut = c.clone().sub(archCentroid);
-          if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+          const sharedAxis = archAxis.get(archMatch);
+          let rawAxis;
+          if (sharedAxis) {
+            rawAxis = sharedAxis.clone();
+          } else {
+            rawAxis = principalAxisWorld(group[0]);
+            const archCentroid = groupCentroid(archMatch.meshes);
+            const dirOut = c.clone().sub(archCentroid);
+            if (dirOut.lengthSq() > 1e-10 && rawAxis.dot(dirOut) < 0) rawAxis.negate();
+          }
           extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
           extraT0 = PHASE2_START;
           extraT1 = LEG_SCREW_SLIDE_T1;
@@ -1731,9 +1743,15 @@ loader.load(
 
           // FIX: per-screw bbox long-axis, sign resolved against this
           // screw's own position relative to the connector centroid.
-          const rawAxis = principalAxisWorld(group[0]);
-          const dirToScrew = c.clone().sub(best.c);
-          if (dirToScrew.lengthSq() > 1e-10 && rawAxis.dot(dirToScrew) < 0) rawAxis.negate();
+          const sharedAxis = connectorAxis.get(best);
+          let rawAxis;
+          if (sharedAxis) {
+            rawAxis = sharedAxis.clone();
+          } else {
+            rawAxis = principalAxisWorld(group[0]);
+            const dirToScrew = c.clone().sub(best.c);
+            if (dirToScrew.lengthSq() > 1e-10 && rawAxis.dot(dirToScrew) < 0) rawAxis.negate();
+          }
 
           extraOffset = toLocalDir(rawAxis.multiplyScalar(LEG_SCREW_PULLOUT));
           extraT0 = PHASE2_START;

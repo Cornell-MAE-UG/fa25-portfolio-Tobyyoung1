@@ -1660,8 +1660,44 @@ loader.load(
     });
 
     console.log(
-      `Arch axis computed for ${archAxis.size} / ${legArchGroups.length} arches. Screw counts per arch (expect ~2 each):`,
+      `Arch axis computed for ${archAxis.size} / ${legArchGroups.length} arches. Screw counts per arch:`,
       Array.from(screwsByArch.values()).map((g) => g.length)
+    );
+
+    // DIAGNOSTIC ONLY — no mutation. computeSharedShaftAxis pools EVERY
+    // screw on an arch (up to 114) into one global PCA axis. The arch has
+    // an 8R curved sweep, so screws at different points along that curve
+    // aren't necessarily parallel — the shared axis represents whatever
+    // region has the most screws, and any screw sitting where the local
+    // surface normal diverges from that average would get pulled the wrong
+    // way. Comparing each screw's OWN single-mesh axis to its arch's shared
+    // axis, sorted by disagreement, to see if the worst offenders cluster
+    // at low Y (bottom of the leg) as that theory predicts.
+    const archAxisDisagreement = [];
+    screwsByArch.forEach((groups, archGroupEntry) => {
+      const sharedAxis = archAxis.get(archGroupEntry);
+      if (!sharedAxis) return;
+      groups.forEach((group) => {
+        const shaftMesh = pickShaftMesh(group);
+        const ownAxis = screwAxisFromVertices(shaftMesh);
+        let angleDeg = THREE.MathUtils.radToDeg(ownAxis.angleTo(sharedAxis));
+        if (angleDeg > 90) angleDeg = 180 - angleDeg; // axis has no inherent sign
+        const c = worldCentroid(shaftMesh);
+        archAxisDisagreement.push({
+          screwNames: group.map((m) => m.name),
+          worldY: Number(c.y.toFixed(4)),
+          angleDeg: Number(angleDeg.toFixed(1)),
+        });
+      });
+    });
+    archAxisDisagreement.sort((a, b) => a.worldY - b.worldY);
+    console.log(
+      `Per-screw vs shared-arch-axis disagreement, sorted lowest Y first (${archAxisDisagreement.length} arch screws):`,
+      archAxisDisagreement
+    );
+    console.log(
+      'Same data sorted by disagreement magnitude, worst first:',
+      [...archAxisDisagreement].sort((a, b) => b.angleDeg - a.angleDeg).slice(0, 20)
     );
 
     // DIAGNOSTIC ONLY — no mutation. nearestLegPart() and the connector

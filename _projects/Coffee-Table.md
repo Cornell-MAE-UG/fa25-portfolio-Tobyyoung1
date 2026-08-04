@@ -1036,6 +1036,14 @@ loader.load(
       '(should now be > 1.00, ideally close to 2 if every screw = head + shaft)'
     );
 
+    const axisSample = screwGroups.slice(0, 10).map((group) => {
+      const fullAxis = screwAxisFromVertices(group[0]);
+      const bboxAxis = principalAxisWorld(group[0]);
+      const angleDeg = THREE.MathUtils.radToDeg(fullAxis.angleTo(bboxAxis));
+      return { name: group[0].name, fullMeshPCA: fullAxis.toArray().map(n=>+n.toFixed(3)), bboxLongAxis: bboxAxis.toArray().map(n=>+n.toFixed(3)), angleBetweenDeg: +angleDeg.toFixed(1) };
+    });
+  console.log('PCA-vs-bbox axis comparison (first 10 screws):', axisSample);
+
     const specialSet = new Set([
       ...topMeshes, ...tableScrapMeshes, ...legScrapMeshes, ...screwMeshes,
       ...middleMeshes, ...rightLeanMeshes, ...leftLeanMeshes,

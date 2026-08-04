@@ -1725,6 +1725,15 @@ loader.load(
       const [best, second] = top2;
       const margin = Math.sqrt(second.d) - Math.sqrt(best.d); // world units
       if (margin < 0.03) { // tune after seeing the real distribution
+        // Same-arch-instance ambiguity (two submeshes of the SAME arch,
+        // e.g. mesh_47 vs mesh_29 both in one leg's rightGroup) is noise —
+        // nearestLegPart still resolves to the correct archGroupEntry
+        // either way. Cross-arch ambiguity (different archGroupEntry, or
+        // arch vs post) is the actual bug candidate.
+        const sameArchInstance =
+          best.entry.kind === 'arch' &&
+          second.entry.kind === 'arch' &&
+          best.entry.archGroup === second.entry.archGroup;
         ambiguousAssignments.push({
           screwNames: group.map((m) => m.name),
           worldY: Number(info.c.y.toFixed(4)),
@@ -1733,13 +1742,19 @@ loader.load(
           secondKind: second.entry.kind,
           secondMeshName: second.entry.mesh.name,
           marginWorld: Number(margin.toFixed(4)),
+          sameArchInstance,
         });
       }
     });
     ambiguousAssignments.sort((a, b) => a.marginWorld - b.marginWorld);
+    const crossInstanceAmbiguous = ambiguousAssignments.filter((a) => !a.sameArchInstance);
     console.log(
-      `Screws with ambiguous arch/post assignment (margin < 0.03), tightest first (${ambiguousAssignments.length}):`,
+      `Screws with ambiguous arch/post assignment (margin < 0.03), tightest first (${ambiguousAssignments.length} total, ${crossInstanceAmbiguous.length} are CROSS-instance — same-instance is noise):`,
       ambiguousAssignments.slice(0, 30)
+    );
+    console.log(
+      'Cross-instance-only ambiguous screws (the real bug candidates):',
+      crossInstanceAmbiguous.slice(0, 30)
     );
 
     // Cross-check: do the worst angleDeg offenders overlap with the

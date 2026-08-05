@@ -945,11 +945,13 @@ loader.load(
         legScrapGroups.push(group);
         return;
       } else if (node.name.includes('91420A')) {
-        // Each 91420A node is only HALF a screw (head or shaft) — collect
-        // raw here, pair them into real screws right after classify() runs.
+        // A screw's head and shaft can be exported as sibling nodes under a
+        // shared parent, each independently matching 91420A. Record the
+        // parent alongside the meshes so siblings can be merged into one
+        // real screwGroup below, instead of becoming two separate groups.
         const group = [];
         collectMeshes(node, group);
-        rawScrewGroups.push(group);
+        rawScrewGroups.push({ meshes: group, parent: node.parent || node });
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -965,9 +967,16 @@ loader.load(
     }
     classify(model);
 
-    // No pairing needed — confirmed each 91420A node is already one
-    // complete screw mesh (1080 nodes = 1080 screws, avg 1.00 mesh/group).
-    rawScrewGroups.forEach((g) => {
+    // Merge any rawScrewGroups entries that share a parent node — those
+    // are a single screw's head and shaft, exported as sibling nodes that
+    // each independently matched 91420A. Every mesh in the merged group
+    // then correctly gets the same explode offset.
+    const rawScrewGroupsByParent = new Map();
+    rawScrewGroups.forEach(({ meshes, parent }) => {
+      if (!rawScrewGroupsByParent.has(parent)) rawScrewGroupsByParent.set(parent, []);
+      rawScrewGroupsByParent.get(parent).push(...meshes);
+    });
+    rawScrewGroupsByParent.forEach((g) => {
       screwGroups.push(g);
       screwMeshes.push(...g);
     });
@@ -1366,6 +1375,18 @@ loader.load(
     // the scrap block's own motion (including its phase-2 retrace/
     // separation); every other leg-internal screw rides the leg's plain
     // splay instead, regardless of whether it sits nearer an arch or a post.
+    // Point-to-box distance, not centroid-to-centroid: a scrap block's
+    // centroid can skew toward one side, letting a screw that's only
+    // incidentally close to that off-center point steal the "nearest 2"
+    // slot from a screw that's actually fastening the block. cluster.box
+    // (the merged connector volume) already exists on every entry, so
+    // measure distance to the box itself instead.
+    function pointToBoxDistSqForScrap(point, box) {
+      const dx = Math.max(box.min.x - point.x, point.x - box.max.x, 0);
+      const dy = Math.max(box.min.y - point.y, point.y - box.max.y, 0);
+      const dz = Math.max(box.min.z - point.z, point.z - box.max.z, 0);
+      return dx * dx + dy * dy + dz * dz;
+    }
     const trueScrapScrewGroups = new Set();
     const scrapScrewToCluster = new Map(); // screwGroup -> legScrapClusterList entry
     legScrapClusterList.forEach((cluster) => {
@@ -1373,7 +1394,7 @@ loader.load(
         const gc = new THREE.Vector3();
         group.forEach((m) => gc.add(worldCentroid(m)));
         gc.divideScalar(group.length);
-        return { group, dist: cluster.centroid.distanceTo(gc) };
+        return { group, dist: pointToBoxDistSqForScrap(gc, cluster.box) };
       });
       distances.sort((a, b) => a.dist - b.dist);
       distances.slice(0, 2).forEach(({ group }) => {

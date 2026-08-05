@@ -945,13 +945,16 @@ loader.load(
         legScrapGroups.push(group);
         return;
       } else if (node.name.includes('91420A')) {
-        // A screw's head and shaft can be exported as sibling nodes under a
-        // shared parent, each independently matching 91420A. Record the
-        // parent alongside the meshes so siblings can be merged into one
-        // real screwGroup below, instead of becoming two separate groups.
+        // Each 91420A node is one complete screw mesh. Confirmed: grouping
+        // by node.parent collapsed all 1080 screws into a SINGLE group
+        // (avg 1080.00 meshes/group), because this exporter puts every
+        // screw instance as a flat sibling under one shared hardware
+        // container — not under a per-instance parent. That disproves the
+        // head/shaft-sibling theory; there's no per-screw parent boundary
+        // to merge on. 1080 nodes = 1080 expected screws, 1:1.
         const group = [];
         collectMeshes(node, group);
-        rawScrewGroups.push({ meshes: group, parent: node.parent || node });
+        rawScrewGroups.push(group);
         return;
       } else if (node.name.startsWith('Middle')) {
         collectMeshes(node, middleMeshes);
@@ -967,16 +970,12 @@ loader.load(
     }
     classify(model);
 
-    // Merge any rawScrewGroups entries that share a parent node — those
-    // are a single screw's head and shaft, exported as sibling nodes that
-    // each independently matched 91420A. Every mesh in the merged group
-    // then correctly gets the same explode offset.
-    const rawScrewGroupsByParent = new Map();
-    rawScrewGroups.forEach(({ meshes, parent }) => {
-      if (!rawScrewGroupsByParent.has(parent)) rawScrewGroupsByParent.set(parent, []);
-      rawScrewGroupsByParent.get(parent).push(...meshes);
-    });
-    rawScrewGroupsByParent.forEach((g) => {
+    // Reverted: parent-based merging collapsed all 1080 screws into one
+    // group (every 91420A node shares the same parent — a flat hardware
+    // container, not a per-screw boundary). Each node is already a
+    // complete screw, so no merge is needed; screwGroups should come out
+    // to 1080 groups, avg 1.00 mesh/group.
+    rawScrewGroups.forEach((g) => {
       screwGroups.push(g);
       screwMeshes.push(...g);
     });

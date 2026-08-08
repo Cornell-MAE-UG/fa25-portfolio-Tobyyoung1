@@ -1388,15 +1388,40 @@ loader.load(
     }
     const trueScrapScrewGroups = new Set();
     const scrapScrewToCluster = new Map(); // screwGroup -> legScrapClusterList entry
+    // FIX: the old version had each cluster independently claim its
+    // "nearest 2" screws with no exclusivity — when two neighboring
+    // clusters both claimed the same screw, scrapScrewToCluster.set()
+    // silently overwrote the earlier claim, leaving the losing cluster
+    // with fewer than 2 real screws. Those orphaned screws then fell
+    // through to the arch/post splay branch instead of riding their real
+    // connector, producing the "screw left behind" artifact.
+    // Fix: assign each screw to its single nearest cluster FIRST (one
+    // screw -> one cluster, no overwrite possible), then keep only the
+    // 2 closest screws within each cluster's own candidate pool.
+    const nearestClusterForScrew = new Map(); // screwGroup -> { cluster, dist }
     legScrapClusterList.forEach((cluster) => {
-      const distances = screwGroups.map((group) => {
+      screwGroups.forEach((group) => {
         const gc = new THREE.Vector3();
         group.forEach((m) => gc.add(worldCentroid(m)));
         gc.divideScalar(group.length);
-        return { group, dist: pointToBoxDistSqForScrap(gc, cluster.box) };
+        const dist = pointToBoxDistSqForScrap(gc, cluster.box);
+        const existing = nearestClusterForScrew.get(group);
+        if (!existing || dist < existing.dist) {
+          nearestClusterForScrew.set(group, { cluster, dist });
+        }
       });
-      distances.sort((a, b) => a.dist - b.dist);
-      distances.slice(0, 2).forEach(({ group }) => {
+    });
+
+    const screwCandidatesByCluster = new Map(); // cluster -> [{ group, dist }]
+    nearestClusterForScrew.forEach(({ cluster, dist }, group) => {
+      if (!screwCandidatesByCluster.has(cluster)) screwCandidatesByCluster.set(cluster, []);
+      screwCandidatesByCluster.get(cluster).push({ group, dist });
+    });
+
+    legScrapClusterList.forEach((cluster) => {
+      const candidates = screwCandidatesByCluster.get(cluster) || [];
+      candidates.sort((a, b) => a.dist - b.dist);
+      candidates.slice(0, 2).forEach(({ group }) => {
         trueScrapScrewGroups.add(group);
         scrapScrewToCluster.set(group, cluster);
       });

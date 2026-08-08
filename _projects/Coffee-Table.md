@@ -1398,13 +1398,30 @@ loader.load(
     // Fix: assign each screw to its single nearest cluster FIRST (one
     // screw -> one cluster, no overwrite possible), then keep only the
     // 2 closest screws within each cluster's own candidate pool.
+    // FIX: previously measured distance from the screw GROUP'S AVERAGED
+    // centroid (head + shaft blended together) to each cluster's box. For
+    // a screw whose head sits far from the block it actually fastens
+    // (long shaft, head near the post/arch surface, block only wrapping
+    // the shaft's far end), averaging pulls the reference point away from
+    // the block entirely — causing the nearest-cluster lookup to miss the
+    // true connector even though the clusters themselves are correct.
+    // Fix: use the CLOSEST individual submesh within the screw group to
+    // the cluster box, not the group's blended centroid. This lets the
+    // shaft's actual entry point (wherever it is) decide the match,
+    // regardless of where the head happens to sit.
+    function closestMeshDistToBox(group, box) {
+      let minDist = Infinity;
+      group.forEach((m) => {
+        const d = pointToBoxDistSqForScrap(worldCentroid(m), box);
+        if (d < minDist) minDist = d;
+      });
+      return minDist;
+    }
+
     const nearestClusterForScrew = new Map(); // screwGroup -> { cluster, dist }
     legScrapClusterList.forEach((cluster) => {
       screwGroups.forEach((group) => {
-        const gc = new THREE.Vector3();
-        group.forEach((m) => gc.add(worldCentroid(m)));
-        gc.divideScalar(group.length);
-        const dist = pointToBoxDistSqForScrap(gc, cluster.box);
+        const dist = closestMeshDistToBox(group, cluster.box);
         const existing = nearestClusterForScrew.get(group);
         if (!existing || dist < existing.dist) {
           nearestClusterForScrew.set(group, { cluster, dist });

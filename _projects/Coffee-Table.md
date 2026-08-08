@@ -853,8 +853,21 @@ function collectMeshes(node, out) {
 }
 
 function modelSpacePos(mesh) {
-  const v = new THREE.Vector3();
-  mesh.getWorldPosition(v);
+  // FIX: mesh.getWorldPosition() reads the mesh's local PIVOT/origin, not
+  // its visible geometry. Every other calculation in this file (matching,
+  // clustering, direction) uses worldCentroid() — the actual geometric
+  // center of the mesh's bounding box — as the ground truth for "where
+  // this part is." Big timber parts happen to have pivots near their own
+  // centroid, so they looked fine, but hardware parts (screws) are
+  // commonly exported with their pivot at a shared/instanced anchor point
+  // far from their own geometry. That mismatch meant a screw's baseModel
+  // (rest position) was silently offset from where it visually sits —
+  // adding the correct explode delta on top of a wrong starting point
+  // still lands in the wrong place, which is why screws drifted off to
+  // the side instead of traveling cleanly with their scrap connector.
+  // Using the same bounding-box centroid convention everywhere fixes this.
+  const tempBox = new THREE.Box3().setFromObject(mesh);
+  const v = tempBox.getCenter(new THREE.Vector3());
   return model.worldToLocal(v);
 }
 

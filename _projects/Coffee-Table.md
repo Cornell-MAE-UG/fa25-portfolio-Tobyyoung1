@@ -2,7 +2,7 @@
 layout: project
 title: Coffee Table
 description: Handmade furniture — designed in Fusion 360, built in pine
-image: /assets/images/Coffee-Table-Finished.jpeg
+image: /assets/images/Finished-Coffee-Table.jpeg
 ---
 
 <style>
@@ -700,7 +700,7 @@ image: /assets/images/Coffee-Table-Finished.jpeg
             <figcaption>Assembled, pre-stain</figcaption>
           </figure>
           <figure>
-            <img src="{{ '/assets/images/Coffee-Table-Finished.jpeg' | relative_url }}" alt="Completed table with stain applied">
+            <img src="{{ '/assets/images/Finished-Coffee-Table.jpeg' | relative_url }}" alt="Completed table with stain applied">
             <figcaption>Finished with stain</figcaption>
           </figure>
         </div>

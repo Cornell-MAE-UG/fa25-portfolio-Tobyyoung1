@@ -1605,46 +1605,6 @@ loader.load(
     // bounding box of the whole arch instance / whole middle post per leg,
     // not per-submesh centroids. A screw's true owner is whichever whole
     // volume it's actually nearest to.
-    const legPartLookup = []; // { box, kind: 'arch' | 'middle', archGroup }
-
-    function mergedBoxFromMeshes(meshes) {
-      if (!meshes.length) return null;
-      const box = new THREE.Box3().setFromObject(meshes[0]);
-      for (let i = 1; i < meshes.length; i++) box.union(new THREE.Box3().setFromObject(meshes[i]));
-      return box;
-    }
-
-    legArchGroups.forEach((archGroupEntry) => {
-      const box = mergedBoxFromMeshes(archGroupEntry.meshes);
-      if (box) legPartLookup.push({ box, kind: 'arch', archGroup: archGroupEntry });
-    });
-
-    // One merged box per leg's middle post (quadrants already groups all
-    // leg-like meshes by leg — filter each leg's slice down to its middle
-    // post submeshes and box them as one volume).
-    quadrants.forEach((group) => {
-      const middleGroupMeshes = group.filter((m) => middleMeshes.includes(m));
-      const box = mergedBoxFromMeshes(middleGroupMeshes);
-      if (box) legPartLookup.push({ box, kind: 'middle', archGroup: null });
-    });
-
-    function pointToBoxDistSqForLegPart(point, box) {
-      const dx = Math.max(box.min.x - point.x, point.x - box.max.x, 0);
-      const dy = Math.max(box.min.y - point.y, point.y - box.max.y, 0);
-      const dz = Math.max(box.min.z - point.z, point.z - box.max.z, 0);
-      return dx * dx + dy * dy + dz * dz;
-    }
-
-    function nearestLegPart(centroid) {
-      let bestDist = Infinity, bestEntry = null;
-      legPartLookup.forEach((entry) => {
-        const d = pointToBoxDistSqForLegPart(centroid, entry.box);
-        if (d < bestDist) { bestDist = d; bestEntry = entry; }
-      });
-      if (!bestEntry) return null;
-      return bestEntry.kind === 'arch' ? bestEntry.archGroup : null;
-    }
-
     // Tabletop: rises in phase 1, holds in phase 2.
     // (0, EXPLODE_TOP, 0) is invariant under Y-rotation, but we still run it
     // through toLocalDir for consistency — it's a no-op here, and it means
@@ -1708,9 +1668,6 @@ loader.load(
     // Group screws by their nearest connector
     const screwsByConnector = new Map(); // connectorRef -> screwGroups[]
     const screwInfo = new Map();          // screwGroup -> { best, c }
-    const screwArchMatch = new Map();     // screwGroup -> legArchGroups entry (or null)
-    const screwsByArch = new Map();       // legArchGroups entry -> screwGroups[]
-
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
       const c = new THREE.Vector3();
@@ -1742,13 +1699,6 @@ loader.load(
         if (!screwsByConnector.has(best)) screwsByConnector.set(best, []);
         screwsByConnector.get(best).push(group);
       }
-
-      const archMatch = nearestLegPart(c);
-      screwArchMatch.set(group, archMatch);
-      if (archMatch) {
-        if (!screwsByArch.has(archMatch)) screwsByArch.set(archMatch, []);
-        screwsByArch.get(archMatch).push(group);
-      }
     });
 
     // One shared pull-out axis per table-scrap connector, not per screw.
@@ -1778,35 +1728,6 @@ loader.load(
       connectorAxis.set(connector, axis);
     });
 
-    // Same shared-axis fix, applied per individual arch: every screw
-    // fastened into a given arch's bottom hole pulls out along one common
-    // direction instead of each voting on its own noisy per-screw PCA axis.
-    const archAxis = new Map(); // legArchGroups entry -> world-space unit axis
-    screwsByArch.forEach((groups, archGroupEntry) => {
-      const axis = computeSharedShaftAxis(groups);
-      if (!axis) return;
-
-      const archCentroid = groupCentroid(archGroupEntry.meshes);
-      const avgScrewCentroid = new THREE.Vector3();
-      groups.forEach((group) => {
-        const gc = new THREE.Vector3();
-        group.forEach((m) => gc.add(worldCentroid(m)));
-        gc.divideScalar(group.length);
-        avgScrewCentroid.add(gc);
-      });
-      avgScrewCentroid.divideScalar(groups.length);
-
-      const dirToScrews = avgScrewCentroid.clone().sub(archCentroid);
-      if (dirToScrews.lengthSq() > 1e-10 && axis.dot(dirToScrews) < 0) axis.negate();
-
-      archAxis.set(archGroupEntry, axis);
-    });
-
-    console.log(
-      `Arch axis computed for ${archAxis.size} / ${legArchGroups.length} arches. Screw counts per arch:`,
-      Array.from(screwsByArch.values()).map((g) => g.length)
-    );
-
     // DIAGNOSTIC ONLY — no mutation. computeSharedShaftAxis pools EVERY
     // screw on an arch (up to 114) into one global PCA axis. The arch has
     // an 8R curved sweep, so screws at different points along that curve
@@ -1816,36 +1737,9 @@ loader.load(
     // way. Comparing each screw's OWN single-mesh axis to its arch's shared
     // axis, sorted by disagreement, to see if the worst offenders cluster
     // at low Y (bottom of the leg) as that theory predicts.
-    const archAxisDisagreement = [];
-    screwsByArch.forEach((groups, archGroupEntry) => {
-      const sharedAxis = archAxis.get(archGroupEntry);
-      if (!sharedAxis) return;
-      groups.forEach((group) => {
-        const shaftMesh = pickShaftMesh(group);
-        const ownAxis = screwAxisFromVertices(shaftMesh);
-        let angleDeg = THREE.MathUtils.radToDeg(ownAxis.angleTo(sharedAxis));
-        if (angleDeg > 90) angleDeg = 180 - angleDeg; // axis has no inherent sign
-        const c = worldCentroid(shaftMesh);
-        archAxisDisagreement.push({
-          screwNames: group.map((m) => m.name),
-          worldY: Number(c.y.toFixed(4)),
-          angleDeg: Number(angleDeg.toFixed(1)),
-        });
-      });
-    });
-    archAxisDisagreement.sort((a, b) => a.worldY - b.worldY);
-    console.log(
-      `Per-screw vs shared-arch-axis disagreement, sorted lowest Y first (${archAxisDisagreement.length} arch screws):`,
-      archAxisDisagreement
-    );
-    console.log(
-      'Same data sorted by disagreement magnitude, worst first:',
-      [...archAxisDisagreement].sort((a, b) => b.angleDeg - a.angleDeg).slice(0, 20)
-    );
-
-    // DIAGNOSTIC ONLY — no mutation. nearestLegPart() and the connector
-    // box-match both search the WHOLE model for the nearest part, with no
-    // restriction to "this screw's own leg." Near the bottom of the legs,
+    // DIAGNOSTIC ONLY — no mutation. The connector box-match searches the
+    // WHOLE model for the nearest connector, with no restriction to "this
+    // screw's own leg." Near the bottom of the legs,
     // two legs' geometry sits closer together than at the top, so a screw
     // could end up nearest to a NEIGHBORING leg's arch or connector instead
     // of its own — logging real names + quadrant indices to confirm before
@@ -1866,22 +1760,7 @@ loader.load(
       const { best, c } = info;
       const screwQ = quadrantIndexOf(c);
 
-      const archMatch = screwArchMatch.get(group);
-      if (archMatch) {
-        const archC = groupCentroid(archMatch.meshes);
-        const archQ = quadrantIndexOf(archC);
-        if (archQ !== screwQ) {
-          crossQuadrantMismatches.push({
-            screwNames: group.map((m) => m.name),
-            screwWorldY: Number(c.y.toFixed(4)),
-            matchType: 'arch',
-            screwQuadrant: screwQ,
-            matchQuadrant: archQ,
-            screwPos: c.toArray().map((n) => Number(n.toFixed(4))),
-            matchCentroid: archC.toArray().map((n) => Number(n.toFixed(4))),
-          });
-        }
-      } else if (best) {
+      if (best) {
         const bestQ = quadrantIndexOf(best.c);
         if (bestQ !== screwQ) {
           crossQuadrantMismatches.push({
@@ -1902,76 +1781,34 @@ loader.load(
       crossQuadrantMismatches
     );
 
-    const archScrewLogSamples = [];
-    const postScrewLogSamples = [];
-
     screwGroups.forEach((group) => {
       if (group.length === 0) return;
-      const { best, c } = screwInfo.get(group) || {};
+      const { best } = screwInfo.get(group) || {};
 
       let p1Offset, p2Offset;
-      let extraOffset = null, extraT0 = null, extraT1 = null;
 
       if (trueScrapScrewGroups.has(group)) {
-        // One of the 2 physical fastening screws for this leg-scrap
-        // connector — moves with the scrap block itself, including its
-        // phase-2 retrace/separation motion.
+        // Match B: one of the 2 real fastening screws for this leg-scrap
+        // connector — moves exactly with the scrap block itself, including
+        // its phase-2 retrace/separation motion.
         const cluster = scrapScrewToCluster.get(group);
         p1Offset = cluster.phase1Offset.clone();
         p2Offset = cluster.phase2Offset.clone();
-      } else if (best && best.isTableScrap) {
-        // Table-top screws ride with their connector exactly — no
-        // independent pull-out along the screw axis anymore.
-        // best.phase1Offset is already local (converted when tableScrapRefs
-        // were built), so it can be reused directly.
-        p1Offset = best.phase1Offset.clone();
-        p2Offset = new THREE.Vector3();
       } else if (best) {
-        // Every other leg-internal screw — nearest an arch OR nearest a
-        // post, doesn't matter — is NOT one of the scrap block's own 2
-        // fastening screws, so it does NOT move with the scrap group. It
-        // just rides the leg's plain splay, same as the middle post and
-        // arches themselves.
-        const archMatch = screwArchMatch.get(group);
-
-        if (archMatch) {
-          p1Offset = archMatch.legSplayPhase1.clone();
-          p2Offset = archMatch.legSplayPhase2.clone();
-          extraOffset = archMatch.archOffset.clone();
-          extraT0 = ARCH_PHASE_T0;
-          extraT1 = ARCH_PHASE_T1;
-        } else {
-          p1Offset = best.phase1Offset.clone();
-          p2Offset = best.legSplayPhase2.clone();
-        }
-
-      } else {       // closes else if (best)
-
+        // Match A: every other screw (table-scrap screws included) just
+        // rides its single nearest connector's own offsets — no arch/post
+        // distinction, no independent pull-out axis.
+        p1Offset = best.phase1Offset.clone();
+        p2Offset = best.phase2Offset.clone();
+      } else {
         p1Offset = new THREE.Vector3();
         p2Offset = new THREE.Vector3();
       }
 
       group.forEach((mesh) => {
-        const entry = { mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() };
-        if (extraOffset) {
-          entry.extraOffset = extraOffset.clone();
-          entry.extraT0 = extraT0;
-          entry.extraT1 = extraT1;
-        }
-        explodeData.push(entry);
+        explodeData.push({ mesh, phase1Offset: p1Offset.clone(), phase2Offset: p2Offset.clone() });
       });
     });
-
-    // Stamp rest position in MODEL space (not local .position). This is
-    // what makes multi-submesh parts — like a screw's separate head/shaft
-    // meshes — move as one rigid piece even when siblings have different
-    // local rotations baked in from the export.
-    explodeData.forEach((entry) => {
-      entry.baseModel = modelSpacePos(entry.mesh);
-    });
-
-    console.log('Arch-attachment screw axis samples (shared per-arch axis, up to 6):', archScrewLogSamples);
-    console.log('Post-attachment screw axis samples (radial-vs-tangential classification, up to 10):', postScrewLogSamples);
 
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Table-scrap connectors:', tableScrapMeshes.length, '/ expected 24');

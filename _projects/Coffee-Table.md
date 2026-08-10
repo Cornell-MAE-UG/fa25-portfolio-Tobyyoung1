@@ -1810,6 +1810,14 @@ loader.load(
       });
     });
 
+    // Stamp rest position in MODEL space (not local .position). This is
+    // what makes multi-submesh parts — like a screw's separate head/shaft
+    // meshes — move as one rigid piece even when siblings have different
+    // local rotations baked in from the export.
+    explodeData.forEach((entry) => {
+      entry.baseModel = modelSpacePos(entry.mesh);
+    });
+
     console.log('Tabletop:', topMeshes.length, '/ expected 6');
     console.log('Table-scrap connectors:', tableScrapMeshes.length, '/ expected 24');
     console.log('Leg-scrap connectors:', legScrapMeshes.length, '/ expected 64');
